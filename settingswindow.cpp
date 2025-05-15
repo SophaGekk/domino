@@ -5,7 +5,20 @@
 
 SettingsWindow::SettingsWindow(QWidget *parent) : QWidget(parent), ui(new Ui::SettingsWindow), settings(new QSettings("MyCompany", "DominoGame")) {
     ui->setupUi(this);
+    // Настройки окна
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
+    setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
     loadSettings();
+
+    // Добавьте кнопки в UI через Qt Designer или программно:
+    okButton = new QPushButton("OK", this);
+    cancelButton = new QPushButton("Отмена", this);
+    ui->buttonLayout->addWidget(okButton); // Предполагается, что есть layout для кнопок
+    ui->buttonLayout->addWidget(cancelButton);
+
+    // Подключение кнопок
+    connect(okButton, &QPushButton::clicked, this, &SettingsWindow::onOkClicked);
+    connect(cancelButton, &QPushButton::clicked, this, &SettingsWindow::onCancelClicked);
 
     // Подключение кнопок выбора количества игроков
 
@@ -48,6 +61,15 @@ void SettingsWindow::updateSettings() {
     saveSettings();
 }
 
+void SettingsWindow::onOkClicked() {
+    saveSettings();
+    emit returnToMainMenu(); // Закрыть окно после сохранения
+}
+
+void SettingsWindow::onCancelClicked() {
+    emit returnToMainMenu(); // Закрыть без сохранения
+}
+
 void SettingsWindow::saveSettings() {
     // Сохраняем текущие значения из UI
     settings->setValue("players", ui->spinPlayers->value());
@@ -64,7 +86,7 @@ void SettingsWindow::saveSettings() {
         ui->checkSound->isChecked(),
         ui->checkHighlight->isChecked()
         );
-    close();
+    emit returnToMainMenu();
 }
 
 void SettingsWindow::loadSettings() {

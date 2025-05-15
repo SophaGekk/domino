@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QSettings>
+#include <QPushButton>
 
 namespace Ui {
 class SettingsWindow;
@@ -21,6 +22,7 @@ public:
     ~SettingsWindow();
     void loadSettings();
 
+
 signals:
     void settingsChanged(int players, int bots, bool showReserve, bool soundEnabled, bool highlight);
     void settingsConfirmed(int players, int bots, bool reserve, bool sound, bool highlight);
@@ -31,12 +33,16 @@ private slots:
     void saveSettings();
     void validateBots(int playersCount);
     void validatePlayers(int botsCount);
+    void onOkClicked();   //  кнопка OK
+    void onCancelClicked(); //  кнопка Отмена
 
 private:
     Ui::SettingsWindow *ui;
     QSettings *settings;
     int currentPlayers = 2;
     int botCounts = 5;
+    QPushButton *okButton;
+    QPushButton *cancelButton;
 };
 
 #endif // SETTINGSWINDOW_H

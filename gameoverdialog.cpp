@@ -8,6 +8,9 @@
 GameOverDialog::GameOverDialog(const QVector<Player*>& players, QWidget* parent)
     : QDialog(parent) {
     ui.setupUi(this); // Загрузка UI из файла
+    // Настройки окна
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
+    setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
 
     // Добавление информации об игроках
     for (Player* player : players) {
@@ -54,6 +57,4 @@ GameOverDialog::GameOverDialog(const QVector<Player*>& players, QWidget* parent)
 
     connect(newRoundButton, &QPushButton::clicked, this, &GameOverDialog::newRoundRequested);
     connect(exitButton, &QPushButton::clicked, this, &GameOverDialog::exitToMainMenu);
-
-    connect(ui.closeButton, &QPushButton::clicked, this, &QDialog::accept);
 }

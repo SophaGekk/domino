@@ -26,7 +26,7 @@ class DominoGame : public QObject {
     Q_OBJECT
 
 public:
-    DominoGame(int playerCount, int BotCount, QObject* parent = nullptr);
+    DominoGame(int playerCount, int BotCount, const QStringList &playerNames, QObject* parent = nullptr);
     Player* getCurrentPlayer();
     Player* getNextPlayer();
 
@@ -38,11 +38,11 @@ public:
     void updateFourthPlayerIndex();
     Player* getFourthPlayer();
 
-    void startNewGame();
+    void startNewGame(const QStringList &playerNames);
     void saveGame(const QString& filename);
     void loadGame(const QString& filename);
     void saveStatistics(const QString& filename);
-    void startNewRound();
+    void startNewRound(const QStringList &playerNames);
     // Геттеры для доступа к состоянию игры
     const QVector<Player*>& getPlayers() const;
     const QVector<DominoTile>& getBoard() const;
@@ -100,7 +100,7 @@ signals:
 
 
 private:
-    void initializePlayers();
+    void initializePlayers(const QStringList &playerNames);
     void dealTiles();
     void determineFirstPlayer();
 

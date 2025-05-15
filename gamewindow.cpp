@@ -17,16 +17,19 @@
 #include "chatmanager.h"
 
 
-GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, QWidget *parent)
-    : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount) {
+GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, QWidget *parent)
+    : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount), playerNames(playerNames) {
     ui->setupUi(this);
+    // Настройки окна
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
+    setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
     scene = new QGraphicsScene(this);
     ui->dominoArea->setScene(scene); // dominoArea - QGraphicsView из UI
     // Инициализация игры
-    game = new DominoGame(playersCount, BotCount, this);
+    game = new DominoGame(playersCount, BotCount, playerNames, this);
     m_turnOverlay = new QWidget(this);
     connect(game, &DominoGame::playerChanged, this, &GameWindow::onPlayerChanged);
-    game->startNewGame();
+    game->startNewGame(playerNames);
 
     // Настройка кнопки "Домой"
     connect(ui->homeButton, &QPushButton::clicked, this, &GameWindow::onHomeClicked);
@@ -845,7 +848,7 @@ void GameWindow::showGameOver() {
     dialog->show();
 
     connect(dialog, &GameOverDialog::newRoundRequested, this, [this]() {
-        game->startNewRound(), clearBoard();  // Новый метод в DominoGame
+        game->startNewRound(playerNames), clearBoard();  // Новый метод в DominoGame
         updateGameState();
         m_darkOverlay->deleteLater();
     });

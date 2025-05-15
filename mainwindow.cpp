@@ -10,18 +10,15 @@
 #include <QShortcut>
 #include <QMediaPlayer>
 #include <QAudioOutput>
+#include "nicknamedialog.h"
 
 MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     // Настройка главного окна
     setWindowTitle(tr("Игра Домино"));
     ui->setupUi(this);
-    soundEffect = new QSoundEffect(this);
-    tileSelectSound = new QSoundEffect(this);
-    tilePlaceSound = new QSoundEffect(this);
-
-    soundEffect->setSource(QUrl::fromLocalFile("C:/Users/Sopha/Downloads/tech_prog/domino/audio/tap.wav"));
-    // tileSelectSound->setSource(QUrl::fromLocalFile("C:/Users/Sopha/Downloads/tech_prog/domino/audio/select.wav"));
-    // tilePlaceSound->setSource(QUrl::fromLocalFile("C:/Users/Sopha/Downloads/tech_prog/domino/audio/place.wav"));
+    // Настройки окна
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
+    setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
 
     // Фоновая музыка
     audioOutput = new QAudioOutput(this);
@@ -29,6 +26,14 @@ MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::Main
     backgroundMusic->setAudioOutput(audioOutput);
     backgroundMusic->setSource(QUrl::fromLocalFile("C:/Users/Sopha/Downloads/tech_prog/domino/audio/1tema.mp3"));
     audioOutput->setVolume(0.1);
+
+    // Зацикливание музыки
+    connect(backgroundMusic, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
+        if (status == QMediaPlayer::EndOfMedia) {
+            backgroundMusic->setPosition(0); // Перемотка в начало
+            backgroundMusic->play();         // Запуск с начала
+        }
+    });
     connect(backgroundMusic, &QMediaPlayer::errorOccurred, this, [](QMediaPlayer::Error error, const QString &errorString) {
         qDebug() << "Ошибка воспроизведения:" << errorString;
     });
@@ -88,27 +93,36 @@ void MainWindow::onPlayClicked() {
     int players = settings.value("players", 2).toInt();
     int bots = settings.value("bots", 0).toInt();
     bool showReserve = settings.value("showReserve", false).toBool();
-    // Если игра завершена или не существует, создать новую
-    if (!gameWindow || gameWindow->isGameOver()) {
-        delete gameWindow; // Удалить старую игру
+    int humanPlayers = players - bots;
 
+    NicknameDialog dialog(humanPlayers, this);
+    if (dialog.exec() == QDialog::Accepted) { // Убрать лишнее условие
+        // Удалить старую игру, если она существует
+        if (gameWindow) {
+            delete gameWindow;
+            gameWindow = nullptr;
+        }
 
-        gameWindow = new GameWindow(players, bots, showReserve);
+        names = dialog.getNames();
+        gameWindow = new GameWindow(players, bots, showReserve, names);
         connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
-     }
-    if (settings.value("soundEnabled", true).toBool()) {
-        backgroundMusic->play();
+
+        if (settings.value("soundEnabled", true).toBool()) {
+            backgroundMusic->play();
+        }
+
+        gameWindow->show(); // Показать новое окно игры
+        this->hide();
     }
-     this->hide();
-     gameWindow->show();
 }
 
-void MainWindow::startNewGame() {
+ void MainWindow::startNewGame() {
     QSettings settings("MyCompany", "DominoGame");
     gameWindow = new GameWindow(
         settings.value("players", 2).toInt(),
         settings.value("bots", 0).toInt(),
-        settings.value("showReserve", true).toBool()
+        settings.value("showReserve", true).toBool(),
+        names
         );
     gameWindow->setIsNewGame(true);
 }
@@ -118,7 +132,7 @@ bool MainWindow::loadSavedGame() {
     if(filename.isEmpty()) return false;
 
     try {
-        gameWindow = new GameWindow(2,0, true);
+        gameWindow = new GameWindow(2,0, true, names);
         gameWindow->game->loadGame(filename);  // Метод загрузки
         gameWindow->setIsNewGame(false);
         return true;
@@ -126,7 +140,6 @@ bool MainWindow::loadSavedGame() {
         QMessageBox::critical(this, "Ошибка", "Не удалось загрузить игру");
         return false;
     }
-
 }
 
 bool MainWindow::highlightEnabled() const {
@@ -206,8 +219,9 @@ void MainWindow::applySettings(int players, int bots, bool showReserve, bool sou
     }
     if (gameWindow) {
         delete gameWindow;
-        gameWindow = new GameWindow(players, bots, showReserve);
+        gameWindow = new GameWindow(players, bots, showReserve, names);
         connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
+        gameWindow->show();
     }
 
     soundEffect->setMuted(!soundEnabled);

@@ -48,5 +48,6 @@ private:
 
     int currentPlayers;
     int currentBots;
+    QStringList names;
 };
 #endif // MAINWINDOW_H

@@ -25,6 +25,7 @@ SOURCES += \
     main.cpp \
     domino_game.cpp \
     mainwindow.cpp \
+    nicknamedialog.cpp \
     player.cpp \
     domino_tile.cpp \
     ruleswindow.cpp \
@@ -43,6 +44,7 @@ HEADERS += \
     gamewindow.h \
     humanplayer.h \
     mainwindow.h \
+    nicknamedialog.h \
     player.h \
     domino_game.h \
     domino_tile.h \

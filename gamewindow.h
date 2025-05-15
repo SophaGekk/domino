@@ -23,7 +23,7 @@ class GameWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GameWindow(int playersCount, int BotCount, bool showReserve, QWidget *parent = nullptr);
+    explicit GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, QWidget *parent = nullptr);
     void setShowReserve(bool show);
     void setHighlightEnabled(bool highlight);
     void setPlayersCount(int count);
@@ -124,6 +124,7 @@ private:
     QPushButton* sendButton;
 
     bool showReserve;
+    const QStringList &playerNames;
 };
 
 #endif // GAMEWINDOW_H

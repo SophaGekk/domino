@@ -50,21 +50,11 @@
         <x>0</x>
         <y>0</y>
         <width>191</width>
-        <height>148</height>
+        <height>194</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="playersLayout"/>
      </widget>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="closeButton">
-     <property name="styleSheet">
-      <string>padding: 8px 16px; font-size: 16px;</string>
-     </property>
-     <property name="text">
-      <string>Закрыть</string>
-     </property>
     </widget>
    </item>
    <item>

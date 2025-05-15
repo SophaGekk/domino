@@ -12,10 +12,10 @@
 
 
 // Конструктор
-DominoGame::DominoGame(int playerCount, int BotCount, QObject* parent)
+DominoGame::DominoGame(int playerCount, int BotCount, const QStringList &playerNames, QObject* parent)
     : QObject(parent), playerCount(playerCount), BotCount(BotCount), currentPlayerIndex(0), gameEnd(false) {
     bazaar = new Bazaar();
-    initializePlayers();
+    initializePlayers(playerNames);
 
 }
 
@@ -47,14 +47,17 @@ int DominoGame::getNextPlayerIndex() const {
 }
 
 // Инициализация игроков
-void DominoGame::initializePlayers() {
+void DominoGame::initializePlayers(const QStringList &playerNames) {
     players.clear();
 
-    // players.append(new HumanPlayer(QString("Player %1").arg(0)));
-    // players.append(new HumanPlayer(QString("Player %1").arg(1)));
-    for (int i = 0; i < playerCount - BotCount; ++i) {
-        players.append(new HumanPlayer(QString("Player %1").arg(i + 1)));
+    // Человеческие игроки
+    for (const QString &name : playerNames) {
+        players.append(new HumanPlayer(name));
     }
+
+    // for (int i = 0; i < playerCount - BotCount; ++i) {
+    //     players.append(new HumanPlayer(QString("Player %1").arg(i + 1)));
+    // }
     for (int i = 0; i < BotCount; ++i) {
         players.append(new BotPlayer(QString("Bot %1").arg(i + 1)));
     }
@@ -155,14 +158,14 @@ bool DominoGame::checkForBlockedGame() const {
     return true;
 }
 
-void DominoGame::startNewGame() {
+void DominoGame::startNewGame(const QStringList &playerNames) {
     setGameId(QDateTime::currentDateTime().toString(Qt::ISODate));
     // Очищаем предыдущее состояние
     board.clear();
     bazaar->initialize();
 
     // Инициализируем игроков
-    initializePlayers();
+    initializePlayers(playerNames);
 
     // Раздаем костяшки
     dealTiles();
@@ -445,12 +448,12 @@ Player* DominoGame::getFourthPlayer() {
     return nullptr; // Обработка ошибки при необходимости
 }
 
-void DominoGame::startNewRound() {
+void DominoGame::startNewRound(const QStringList &playerNames) {
     // Сбросить доску, оставить счет
     board.clear();
 
     currentRound++;
-    startNewGame();
+    startNewGame(playerNames);
 
 }
 

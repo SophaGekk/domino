@@ -6,6 +6,9 @@
 
 StatisticsWindow::StatisticsWindow(QWidget *parent) : QWidget(parent), ui(new Ui::StatisticsWindow) {
     ui->setupUi(this); // Загрузка UI из файла
+    // Настройки окна
+    setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
+    setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
 
     // Настройка кнопки "Домой"
     connect(ui->homeButton, &QPushButton::clicked, this, &StatisticsWindow::onHomeClicked);
