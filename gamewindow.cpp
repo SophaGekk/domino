@@ -1,0 +1,1001 @@
+#include "gamewindow.h"
+#include "ui_gamewindow.h"
+#include <QMessageBox>
+#include "bazaar.h"
+#include "player.h"
+#include "dominolabel.h"
+#include "bot_player.h"
+#include "clickable_rect.h"
+#include <QGraphicsProxyWidget>
+#include "ClickableLabel.h"
+#include "gameoverdialog.h"
+#include <QDate>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QTimer>
+#include "chatmanager.h"
+
+
+GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, QWidget *parent)
+    : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount) {
+    ui->setupUi(this);
+    scene = new QGraphicsScene(this);
+    ui->dominoArea->setScene(scene); // dominoArea - QGraphicsView из UI
+    // Инициализация игры
+    game = new DominoGame(playersCount, BotCount, this);
+    m_turnOverlay = new QWidget(this);
+    connect(game, &DominoGame::playerChanged, this, &GameWindow::onPlayerChanged);
+    game->startNewGame();
+
+    // Настройка кнопки "Домой"
+    connect(ui->homeButton, &QPushButton::clicked, this, &GameWindow::onHomeClicked);
+
+    // Обновление интерфейса
+    connect(game, &DominoGame::gameStarted, this, &GameWindow::updateGameState);
+    connect(game, &DominoGame::playerMoved, this, &GameWindow::updateGameState);
+    connect(game, &DominoGame::gameEnded, this, &GameWindow::showGameOver);
+
+    labelReserve = new ClickableLabel("Базар", this);
+    connect(labelReserve, &ClickableLabel::clicked, this, &GameWindow::onReserveClicked);
+
+
+
+    ui->scrollBottomHand->setStyleSheet("QScrollBar:horizontal { height: 12px; }");
+    ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }");
+    ui->dominoArea->setAlignment(Qt::AlignCenter); // Центрирование содержимого
+
+
+    m_turnOverlay->setStyleSheet("background: rgba(0, 0, 0, 320);");
+    m_turnOverlay->hide();
+
+    m_turnLabel = new QLabel(m_turnOverlay);
+    m_turnLabel->setAlignment(Qt::AlignCenter);
+    m_turnLabel->setStyleSheet("font-size: 32px; color: white;");
+    m_turnLabel->setGeometry(0, 0, width(), height());
+    m_turnOverlay->hide();
+
+    // Создание виджетов чата
+    chatManager = new ChatManager(this);
+    chatHistoryWidget = new QTextEdit(this);
+    chatHistoryWidget->setReadOnly(true);
+    chatHistoryWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+
+    QWidget* inputContainer = new QWidget(this);
+    QHBoxLayout* inputLayout = new QHBoxLayout(inputContainer);
+    inputLayout->setContentsMargins(0, 0, 0, 0); // Убрать отступы
+
+    messageInput = new QLineEdit(this);
+    sendButton = new QPushButton("➤", this); // Иконка стрелки
+    sendButton->setFixedSize(40, 30); // Фиксированный размер кнопки
+
+    inputLayout->addWidget(messageInput);  // Поле ввода растягивается
+    inputLayout->addWidget(sendButton);    // Кнопка фиксирована справа
+
+    // Вертикальный макет для всего чата
+    QVBoxLayout* chatLayout = new QVBoxLayout;
+    chatLayout->addWidget(new QLabel("Чат"));
+    chatLayout->addWidget(chatHistoryWidget);
+    chatLayout->addWidget(inputContainer); // Добавляем контейнер с полем ввода и кнопкой
+
+    ui->rightPanelLayout->addLayout(chatLayout);
+
+    chatHistoryWidget->setStyleSheet(
+        "QTextEdit { background: #f0f0f0; border-radius: 5px; padding: 5px; }"
+        );
+    messageInput->setStyleSheet(
+        "QLineEdit { border: 1px solid #ccc; border-radius: 3px; padding: 5px; }"
+        );
+    sendButton->setStyleSheet(
+        "QPushButton { background: #4CAF50; color: white; border: none; padding: 8px; border-radius: 3px; }"
+        "QPushButton:hover { background: #45a049; }"
+        );
+
+    // Подключение сигналов
+    connect(sendButton, &QPushButton::clicked, this, &GameWindow::sendChatMessage);
+    connect(messageInput, &QLineEdit::returnPressed, this, &GameWindow::sendChatMessage);
+    connect(chatManager, &ChatManager::newMessage, this, &GameWindow::updateChatHistory);
+
+    connect(ui->pushButton_skip, &QPushButton::clicked,
+            this, &GameWindow::on_pushButton_skip_clicked);
+
+    updateGameState();
+    setupHands();
+    updateUI();
+}
+
+
+void GameWindow::updateGameState() {
+    // Обновление информации о раунде
+    ui->labelRound->setText("Раунд: " + QString::number(game->getCurrentRound()));
+    // Обновление резерва
+    updateReserveLabel(showReserve);
+
+    // Обновление информации об игроках
+    const auto& players = game->getPlayers();
+    ui->labelNameBottom->setText(game->getCurrentPlayer()->getName());
+    ui->labelScoreBottom->setText(QString::number(game->getCurrentPlayer()->getScore()));
+    ui->avatarBottom->setPixmap(game->getCurrentPlayer()->getAvatar()); // Установка аватарки
+
+    game->updateNextPlayerIndex();
+    if(players.size() >= 3)
+    {
+        game->updateThirdPlayerIndex();
+        // правый бок
+        ui->labelNameRight->setText(game->getNextPlayer()->getName());
+        ui->labelScoreRight->setText(QString::number(game->getNextPlayer()->getScore()));
+        //ui->avatarRight->setPixmap(game->getNextPlayer()->getAvatar());
+
+        //верхний
+        ui->labelNameTop->setText(game->getThirdPlayer()->getName());
+        ui->labelScoreTop->setText(QString::number(game->getThirdPlayer()->getScore()));
+        ui->avatarTop->setPixmap(game->getThirdPlayer()->getAvatar());
+
+        if(players.size() == 4)
+        {
+            game->updateFourthPlayerIndex();
+            // левый бок
+            ui->labelNameLeft->setText(game->getFourthPlayer()->getName());
+            ui->labelScoreLeft->setText(QString::number(game->getFourthPlayer()->getScore()));
+            //ui->avatarLeft->setPixmap(game->getFourthPlayer()->getAvatar());
+        }
+    }
+    else
+    {
+        //верхний
+        ui->labelNameTop->setText(game->getNextPlayer()->getName());
+        ui->labelScoreTop->setText(QString::number(game->getNextPlayer()->getScore()));
+        ui->avatarTop->setPixmap(game->getNextPlayer()->getAvatar());
+    }
+
+
+    updateHandDisplay();
+    // Автоматическая проверка конца игры
+    if (game->isGameOver()) {
+        game->calculateScores();
+        int winner = game->determineWinner();
+        QMessageBox::information(this, "Игра окончена", "Победитель: " + game->getPlayers()[winner]->getName());
+    }
+    ui->pushButton_skip->setEnabled(!game->getCurrentPlayer()->isBot() && !game->currentPlayerCanMove() && game->getBazaar()->isEmpty()); // Активируем кнопку, если ходов нет
+    game->saveGame("C:/Users/Sopha/Downloads/tech_prog/domino/my_save.sav");
+}
+
+void GameWindow::sendChatMessage() {
+    QString message = messageInput->text().trimmed();
+    if (!message.isEmpty()) {
+        QString playerName = game->getCurrentPlayer()->getName();
+        chatManager->sendMessage(playerName, message);
+        messageInput->clear();
+    }
+}
+
+
+
+void GameWindow::updateChatHistory(const QString& formattedMessage) {
+    chatHistoryWidget->append(formattedMessage);
+    if (!isActiveWindow()) {
+        QApplication::alert(this); // Мигание иконки в таскбаре
+    }
+}
+
+void GameWindow::clearBoard() {
+    scene->clear();
+}
+
+void GameWindow::onHomeClicked() {
+    emit returnToMainMenu();
+    m_turnOverlay->hide();
+    this->close();
+}
+
+GameWindow::~GameWindow() {
+    delete ui;
+    delete game;
+    delete scene;
+}
+
+
+void GameWindow::setShowReserve(bool show) {
+    isReserveVisible = show;
+    ui->labelReserve->setVisible(show); // Если резерв отображается через QLabel
+}
+
+void GameWindow::setHighlightEnabled(bool highlight) {
+    isHighlightEnabled = highlight;
+    // Логика подсветки (например, обновить вид костяшек)
+}
+
+void GameWindow::setPlayersCount(int count) {
+    currentPlayersCount = count;
+    // Применение при следующем запуске игры
+}
+
+void GameWindow::setBotCount(int count) {
+    BotCount = count;
+    // Применение при следующем запуске игры
+}
+
+
+void GameWindow::setupHands() {
+    for (DominoLabel* label : bottomHandLabels) {
+        connect(label, &DominoLabel::clicked, this, [this, label]() {
+            handleDominoClick(label);
+        });
+    }
+}
+
+void GameWindow::handleDominoClick(DominoLabel* clickedLabel) {
+    // Сброс предыдущей подсветки
+    clearHighlights();
+    clearSelection();
+
+    selectedTile = getTileFromLabel(clickedLabel);
+    clickedLabel->setHighlighted(true);
+    //showPossibleMoves(selectedTile);
+
+    // Проверка возможности хода
+    DominoTile tile = getTileFromLabel(clickedLabel);
+
+    QVector<int> ends = game->getBoardEnds();
+
+    bool isValid = false;
+
+    if (ends.isEmpty()) {
+        // Первый ход: можно положить дубль
+        bool isDouble = tile.isDouble() && (tile.getLeftValue() != 0);
+        bool isMaxTile = (tile == game->getMaxTileWithoutDoubles());
+        // Если у кого-то есть дубль, разрешаем только дубли (кроме 0-0)
+        if (game->getHasDouble()) {
+            isValid = isDouble;
+        }
+        // Если дублей нет, разрешаем самую "дорогую" костяшку
+        else {
+            isValid = isMaxTile;
+        }
+        qDebug() << "Первый ход:" << tile.getLeftValue() << "|" << tile.getRightValue();
+    }
+    else {
+        isValid = (tile.getLeftValue() == ends.first() || tile.getLeftValue() == ends.last() ||
+                   tile.getRightValue() == ends.first() || tile.getRightValue() == ends.last());
+        qDebug() << "Ход:" << tile.getLeftValue() << "|" << tile.getRightValue();
+        qDebug() << "Концы стола:" << ends.first() << "|" << ends.last();
+
+    }
+
+    if (isValid) {
+        showPossibleMoves(tile);
+    } else {
+        QMessageBox::warning(this, "Ошибка", "Невозможно сделать ход этой костяшкой.");
+        clearHighlights();
+        clearSelection();
+    }
+
+}
+
+
+void GameWindow::processMove(DominoTile tile) {
+    updateHandDisplay();   // Перерисовать руки
+    updateBoard();         // Обновить игровое поле
+    updateHighlightedAreas();
+
+    while (game->getCurrentPlayer()->isBot()) {
+        // Получаем текущие концы доски
+        QVector<int> ends = game->getBoardEnds();
+        int leftEnd;
+        int rightEnd;
+        if(ends.isEmpty())
+        {
+            leftEnd = -1;
+            rightEnd = -1;
+        }
+        else
+        {
+            leftEnd = ends.first();
+            rightEnd = ends.last();
+        }
+
+        auto [botTile, isBotLeftEnd] = game->getCurrentPlayer()->playTurn( leftEnd, rightEnd );
+
+        if (botTile.isValidNumer()) {
+            game->getCurrentPlayer()->removeTile(botTile);
+            if(!ends.isEmpty())
+            {
+               game->placeTile(botTile, isBotLeftEnd);
+            }
+            else{game->getBoard().append(botTile);}
+            game->makeMove();
+            updateGameState();
+            updateBoard();
+            QCoreApplication::processEvents(); // Обновляем GUI
+        } else {
+            // Логика для взятия из базара
+            if (!game->getBazaar()->isEmpty()) {
+                DominoTile newTile = game->getBazaar()->drawTile();
+                game->getCurrentPlayer()->addTile(newTile);
+                game->getBazaar()->removeTile(newTile);
+                // Обновить интерфейс
+                ui->labelReserve->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
+
+            }
+            else {game->makeMove();}
+        }
+    }
+}
+
+void GameWindow::showPossibleMoves(const DominoTile& tile) {
+    // Добавить индикаторы на поле (например, стрелки)
+
+    QVector<int> ends = game->getBoardEnds();
+
+    // Если стол пуст, подсветить центр для первого хода
+    if (ends.isEmpty()) {
+        // Координаты центра игрового поля (пример)
+        int centerX = ui->dominoArea->width() / 2-30;
+        int centerY = ui->dominoArea->height() / 2-15;
+        QPoint centerPosition(centerX, centerY);
+
+        // Создать прямоугольник с контуром
+        ClickableRect* rect = new ClickableRect();
+        rect->setRect(centerX, centerY, 30, 70);
+        rect->setPen(QPen(Qt::green, 2));
+        rect->setData(0, "first_move"); // Пометить элемент для обработки
+        connect(rect, &ClickableRect::clicked, this, &GameWindow::onFirstMoveClicked);
+        scene->addItem(rect);
+        return;
+    }
+
+    else {
+        // Подсветка для левого и правого концов
+        QPoint leftPos = leftEndPosition - getTilePosition(game->getBoard().first());
+        QPoint rightPos = rightEndPosition + getTilePosition(game->getBoard().last());
+
+        // Проверка возможности хода слева
+        if (tile.getRightValue() == ends.first() || tile.getLeftValue() == ends.first()) {
+            drawArrow(leftPos, true, ends.first());
+        }
+
+        // Проверка возможности хода справа
+        if (tile.getLeftValue() == ends.last() || tile.getRightValue() == ends.last()) {
+            drawArrow(rightPos, false, ends.last());
+        }
+    }
+}
+
+
+
+void GameWindow::onFirstMoveClicked() {
+    // Проверить, что выбран дубль и стол пуст
+    DominoTile selectedTile = getSelectedTile(); // Реализуйте этот метод
+
+    // Перенести доминошку на стол
+    qDebug() << "Ход:" << selectedTile.getLeftValue() << "|" << selectedTile.getRightValue();
+
+    game->getBoard().append(selectedTile);
+    updateBoard();
+    game->getCurrentPlayer()->removeTile(selectedTile);
+    updateHandDisplay();
+
+    game->makeMove();
+    updateGameState();
+    qDebug() << "game->getCurrentPlayer()" << game->getCurrentPlayerIndex();
+    qDebug() << "game->getNextPlayer()" << game->getNextPlayerIndex();
+    // Сброс выбранной доминошки
+    selectedTile = DominoTile(-1, -1); // Сброс в невалидное состояние
+    clearSelection();
+}
+
+// Обработчик клика на левый конец доски
+void GameWindow::onLeftEndClicked() {
+    DominoTile selectedTile = getSelectedTile();
+    QVector<int> ends = game->getBoardEnds();
+    // Если левая часть домино совпадает с левым концом доски, переворачиваем
+    if (selectedTile.getLeftValue() == ends.first()) {
+        selectedTile.flip();
+    }
+    game->placeTile(selectedTile, true);
+    game->getCurrentPlayer()->removeTile(selectedTile);
+    updateBoard();
+    updateHandDisplay();
+    game->makeMove(); // Переключаем игрока
+    qDebug() << "game->getCurrentPlayer()" << game->getCurrentPlayerIndex();
+    qDebug() << "game->getNextPlayer()" << game->getNextPlayerIndex();
+    updateGameState();
+    clearSelection();
+}
+
+// Обработчик клика на правый конец доски
+void GameWindow::onRightEndClicked() {
+    DominoTile selectedTile = getSelectedTile();
+
+    QVector<int> ends = game->getBoardEnds();
+    // Если правая часть домино совпадает с правым концом доски, переворачиваем
+    if (selectedTile.getRightValue() == ends.last()) {
+        selectedTile.flip();
+    }
+    game->placeTile(selectedTile, false);
+    game->getCurrentPlayer()->removeTile(selectedTile);
+    updateBoard();
+    updateHandDisplay();
+    game->makeMove(); // Переключаем игрока
+    qDebug() << "game->getCurrentPlayer()" << game->getCurrentPlayerIndex();
+    qDebug() << "game->getNextPlayer()" << game->getNextPlayerIndex();
+    updateGameState();
+    clearSelection();
+
+}
+
+DominoTile GameWindow::getTileFromLabel(DominoLabel* label) {
+    for (int i = 0; i < bottomHandLabels.size(); ++i) {
+        if (bottomHandLabels[i] == label) {
+            return game->getCurrentPlayer()->getHand()[i];
+        }
+    }
+    return DominoTile(-1, -1); // Ошибка, если не найдено
+}
+
+void GameWindow::updateBoard() {
+    scene->clear();
+
+    const QVector<DominoTile>& board = game->getBoard();
+
+    // Определить позицию для первой домино (центр)
+    int currentX = ui->dominoArea->width() / 2 - 30;
+    int currentY = ui->dominoArea->height() / 2 - 15;
+
+
+    for (const DominoTile& tile : board) {
+        bool isDouble = (tile.getLeftValue() == tile.getRightValue());
+        int width = isDouble ? 40 : 80;   // Вертикальный (дубль) или горизонтальный
+        int height = isDouble ? 80 : 40;
+
+        DominoLabel *label = new DominoLabel();
+        label->setDots(tile.getLeftValue(), tile.getRightValue(), isDouble, true); // Передать значения точек
+        if(isDouble)
+        {
+            currentY = ui->dominoArea->height() / 2 - 15;
+            label->setFixedSize(width, height); // Размер домино (ширина x высота)
+            // Добавить виджет на сцену через QGraphicsProxyWidget
+            QGraphicsProxyWidget *proxy = scene->addWidget(label);
+            proxy->setPos(currentX, currentY); // Установить позицию
+            currentX += 40;
+
+        }
+        else{
+            currentY = ui->dominoArea->height() / 2 + 10;
+            label->setFixedSize(width, height); // Размер домино (ширина x высота)
+            // Добавить виджет на сцену через QGraphicsProxyWidget
+            QGraphicsProxyWidget *proxy = scene->addWidget(label);
+            proxy->setPos(currentX, currentY); // Установить позицию
+            currentX += 80;
+        }
+
+    }
+}
+
+void GameWindow::drawArrow(const QPoint& pos, bool isLeft, const DominoTile& tile) {
+    bool isDouble = (tile.getLeftValue() == tile.getRightValue());
+    int width = isDouble ? 30 : 70;
+    int height = isDouble ? 70 : 30;
+    int offset = isDouble ? 70 : 30; // Смещение в зависимости от ориентации
+
+    QPointF highlightPos;
+    if (isLeft) {
+        highlightPos = QPointF(pos.x() - offset, pos.y());
+    } else {
+        highlightPos = QPointF(pos.x() + offset, pos.y());
+    }
+
+    // Если прямоугольник выходит за пределы экрана, смещаем его
+    QRectF visibleArea = ui->dominoArea->mapToScene(ui->dominoArea->viewport()->geometry()).boundingRect();
+    if (!visibleArea.contains(highlightPos)) {
+        // Смещаем вниз, чтобы был над домино игрока, но не перекрывал стол
+        highlightPos.setY(visibleArea.bottom() - 100);
+        if (isLeft) {
+            highlightPos.setX(visibleArea.left() + 50); // Левый край
+        } else {
+            highlightPos.setX(visibleArea.right() - 50 - width); // Правый край
+        }
+    }
+
+    // Создать кликабельный прямоугольник
+    ClickableRect* highlight = new ClickableRect();
+    highlight->setRect(highlightPos.x(), highlightPos.y(), width, height);
+    highlight->setPen(QPen(Qt::red, 2, Qt::DashLine));
+    highlight->setBrush(QBrush(QColor(255, 0, 0, 50)));
+
+    // Передать данные о направлении (левый/правый конец)
+    highlight->setData(0, QVariant(isLeft));
+    // Подключение обработчиков
+    if (isLeft) {
+        connect(highlight, &ClickableRect::clicked, this, &GameWindow::onLeftEndClicked);
+    } else {
+        connect(highlight, &ClickableRect::clicked, this, &GameWindow::onRightEndClicked);
+    }
+
+
+
+    scene->addItem(highlight);
+}
+
+void GameWindow::clearSelection() {
+    for (DominoLabel* label : bottomHandLabels) {
+        label->setHighlighted(false);
+    }
+    selectedTile = DominoTile(-1, -1); // Сброс выбранной костяшки
+}
+
+void GameWindow::handleHighlightClick(bool isLeftEnd) {
+    Player* currentPlayer = game->getCurrentPlayer();
+    DominoTile selectedTile = currentPlayer->getSelectedTile();
+
+    // Удалить домино из руки игрока
+    currentPlayer->removeTile(selectedTile);
+
+    // Добавить домино на доску
+    game->placeTile(selectedTile, isLeftEnd);
+
+    // Обновить интерфейс
+    updateBoard();
+    updateHandDisplay();
+    updateHighlightedAreas(); // Обновить подсветку
+}
+
+void GameWindow::updateHandDisplay() {
+    const auto& hand = game->getCurrentPlayer()->getHand();
+    // Удалить старые элементы, если их больше, чем нужно
+    while (bottomHandLabels.size() > hand.size()) {
+        DominoLabel* label = bottomHandLabels.takeLast();
+        delete label;
+    }
+
+    if (game->getCurrentPlayer()->isBot()) {
+        if(game->getPlayers().size() == 2 || (game->getPlayers().size() == 3 && BotCount == 1)|| (game->getPlayers().size() == 3 && BotCount == 2 && !game->getNextPlayer()->isBot()) || (game->getPlayers().size() == 4 && ((BotCount == 3 || BotCount == 2) && game->getNextPlayer()->isBot() && !game->getThirdPlayer()->isBot())))
+        {
+            const auto& topHand = game->getThirdPlayer()->getHand();
+            // Удалить лишние элементы
+            while (topHandLabels.size() > topHand.size()) {
+                DominoLabel* label = topHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = topHandLabels.size(); i < topHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(30, 50);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->horizontalLayoutTopHand->addWidget(label);
+                topHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < topHand.size(); ++i) {
+                topHandLabels[i]->setLineVisible(false); // Скрыть точки
+                topHandLabels[i]->show();
+            }
+
+        }
+        if((game->getPlayers().size() == 3 && BotCount == 2 && game->getNextPlayer()->isBot()) || (game->getPlayers().size() == 4 && BotCount == 3 && game->getNextPlayer()->isBot() && game->getThirdPlayer()->isBot()) )
+        {
+            const auto& rightHand = game->getNextPlayer()->getHand();;
+            // Удалить лишние элементы
+            while (rightHandLabels.size() > rightHand.size()) {
+                DominoLabel* label = rightHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = rightHandLabels.size(); i < rightHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(50, 30);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->verticalLayoutRightHand->addWidget(label);
+                rightHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < rightHand.size(); ++i) {
+                rightHandLabels[i]->setLineVisible(false); // Скрыть точки
+                rightHandLabels[i]->show();
+            }
+
+        }
+        if(game->getPlayers().size() == 4 && (BotCount == 1 || (BotCount == 2 && !game->getNextPlayer()->isBot()) || (BotCount == 3 && !game->getNextPlayer()->isBot())))
+        {
+            const auto& leftHand = game->getNextPlayer()->getHand();;
+            // Удалить лишние элементы
+            while (leftHandLabels.size() > leftHand.size()) {
+                DominoLabel* label = leftHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = leftHandLabels.size(); i < leftHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(50, 30);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->verticalLayoutLeftHand->addWidget(label);
+                leftHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < leftHand.size(); ++i) {
+                leftHandLabels[i]->setLineVisible(false); // Скрыть точки
+                leftHandLabels[i]->show();
+            }
+            if(BotCount == 1)
+            {
+
+            }
+            if(BotCount == 2)
+            {
+
+            }
+            if(BotCount == 3)
+            {
+
+            }
+        }
+
+    } else {
+        // Добавить новые элементы, если рука увеличилась
+        for (int i = bottomHandLabels.size(); i < hand.size(); ++i) {
+            DominoLabel* label = new DominoLabel(this);
+            label->setFixedSize(40, 80);
+            label->setStyleSheet("background: white; border: 1px solid black;");
+            connect(label, &DominoLabel::clicked, this, [this, label]() {
+                handleDominoClick(label);
+            });
+            ui->horizontalLayoutBottomHand->addWidget(label);
+            bottomHandLabels.append(label);
+        }
+
+        // Обновить значения для всех костяшек
+        for (int i = 0; i < hand.size(); ++i) {
+            DominoTile tile = hand[i];
+            bottomHandLabels[i]->setDots(tile.getLeftValue(), tile.getRightValue(), true, true);
+            bottomHandLabels[i]->show();
+        }
+
+
+
+        if(game->getPlayers().size() >= 3){
+            const auto& topHand = game->getThirdPlayer()->getHand();
+            // Удалить лишние элементы
+            while (topHandLabels.size() > topHand.size()) {
+                DominoLabel* label = topHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = topHandLabels.size(); i < topHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(30, 50);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->horizontalLayoutTopHand->addWidget(label);
+                topHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < topHand.size(); ++i) {
+                topHandLabels[i]->setLineVisible(false); // Скрыть точки
+                topHandLabels[i]->show();
+            }
+
+            const auto& rightHand = game->getNextPlayer()->getHand();;
+            // Удалить лишние элементы
+            while (rightHandLabels.size() > rightHand.size()) {
+                DominoLabel* label = rightHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = rightHandLabels.size(); i < rightHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(50, 30);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->verticalLayoutRightHand->addWidget(label);
+                rightHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < rightHand.size(); ++i) {
+                rightHandLabels[i]->setLineVisible(false); // Скрыть точки
+                rightHandLabels[i]->show();
+            }
+
+            if(game->getPlayers().size()==4)
+            {
+                const auto& leftHand = game->getNextPlayer()->getHand();;
+                // Удалить лишние элементы
+                while (leftHandLabels.size() > leftHand.size()) {
+                    DominoLabel* label = leftHandLabels.takeLast();
+                    delete label;
+                }
+
+                // Добавить новые
+                for (int i = leftHandLabels.size(); i < leftHand.size(); ++i) {
+                    DominoLabel* label = new DominoLabel(this);
+                    label->setFixedSize(50, 30);
+                    label->setStyleSheet("background: white; border: 1px solid black;");
+                    ui->verticalLayoutLeftHand->addWidget(label);
+                    leftHandLabels.append(label);
+                }
+
+                // Обновить верхние костяшки (задняя сторона)
+                for (int i = 0; i < leftHand.size(); ++i) {
+                    leftHandLabels[i]->setLineVisible(false); // Скрыть точки
+                    leftHandLabels[i]->show();
+                }
+            }
+        }
+        else
+        {
+            const auto& topHand = game->getNextPlayer()->getHand();
+            // Удалить лишние элементы
+            while (topHandLabels.size() > topHand.size()) {
+                DominoLabel* label = topHandLabels.takeLast();
+                delete label;
+            }
+
+            // Добавить новые
+            for (int i = topHandLabels.size(); i < topHand.size(); ++i) {
+                DominoLabel* label = new DominoLabel(this);
+                label->setFixedSize(30, 50);
+                label->setStyleSheet("background: white; border: 1px solid black;");
+                ui->horizontalLayoutTopHand->addWidget(label);
+                topHandLabels.append(label);
+            }
+
+            // Обновить верхние костяшки (задняя сторона)
+            for (int i = 0; i < topHand.size(); ++i) {
+                topHandLabels[i]->setLineVisible(false); // Скрыть точки
+                topHandLabels[i]->show();
+            }
+        }
+    }
+}
+
+void GameWindow::updateHighlightedAreas() {
+    // Удалить старую подсветку
+    QList<QGraphicsItem*> items = scene->items();
+    for (QGraphicsItem* item : items) {
+        if (dynamic_cast<ClickableRect*>(item)) {
+            scene->removeItem(item);
+            delete item;
+        }
+    }
+
+    // Подсветить допустимые ходы
+    const QVector<DominoTile>& board = game->getBoard();
+    if (board.isEmpty()) {
+        // Подсветка центра для первого хода
+        QPoint center(ui->dominoArea->width() / 2, ui->dominoArea->height() / 2);
+        drawArrow(center, false, DominoTile(0, 0)); // Заглушка для дубля
+        return;
+    }
+
+    // Подсветить левый и правый концы доски
+    QPoint leftPos = getTilePosition(board.first()); // Используйте свой метод
+    QPoint rightPos = getTilePosition(board.last());;
+
+    drawArrow(leftPos, true, board.first());  // Слева от левого конца
+    drawArrow(rightPos, false, board.last()); // Справа от правого конца
+}
+
+QPoint GameWindow::getTilePosition(const DominoTile& tile) const {
+    // Пример: поиск позиции по данным домино
+    for (auto item : scene->items()) {
+        DominoTileItem* tileItem = dynamic_cast<DominoTileItem*>(item);
+        if (tileItem && tileItem->getTile() == tile) {
+            return item->pos().toPoint();
+        }
+    }
+    return QPoint(0, 0); // Заглушка
+}
+
+void GameWindow::onReserveClicked() {
+    if (game->getBazaar()->remainingTilesCount() == 0) {
+        QMessageBox::information(this, "Резерв пуст", "Нет доступных костяшек.");
+        return;
+    }
+    // Затемнение родительского окна
+    m_darkOverlay = new QWidget(this);
+    m_darkOverlay->setStyleSheet("background: rgba(0, 0, 0, 150);");
+    m_darkOverlay->setGeometry(rect()); // Занимает всю область GameWindow
+    m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents); // Игнорировать клики
+    m_darkOverlay->show();
+
+    m_bazaarOverlay = new BazaarOverlay(game->getBazaar(), this);
+    connect(m_bazaarOverlay, &BazaarOverlay::tileSelected, this, &GameWindow::handleBazaarTileSelected);
+
+    connect(m_bazaarOverlay, &BazaarOverlay::destroyed, this, [this]() {
+        m_darkOverlay->deleteLater(); // Безопасное удаление
+    });
+    m_bazaarOverlay->updateTiles();
+    m_bazaarOverlay->show();
+}
+
+void GameWindow::handleBazaarTileSelected(const DominoTile& tile) {
+    // Добавить домино в руку игрока
+    game->getCurrentPlayer()->addTile(tile);
+    game->getBazaar()->removeTile(tile);
+    // Обновить интерфейс
+    updateGameState();
+    ui->labelReserve->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
+}
+
+void GameWindow::showGameOver() {
+    // Затемнение фона
+    m_darkOverlay = new QWidget(this);
+    m_darkOverlay->setStyleSheet("background: rgba(0, 0, 0, 150);");
+    m_darkOverlay->setGeometry(rect());
+    m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_darkOverlay->show();
+
+    int winnerIndex = game->determineWinner();
+    Player* winner = game->getPlayers()[winnerIndex];
+    winner->addWin();
+    writeGameStats();
+    // Окно результатов
+    GameOverDialog* dialog = new GameOverDialog(game->getPlayers(), this);
+    dialog->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->adjustSize();
+    dialog->move(geometry().center() - dialog->rect().center());
+    dialog->show();
+
+    connect(dialog, &GameOverDialog::newRoundRequested, this, [this]() {
+        game->startNewRound(), clearBoard();  // Новый метод в DominoGame
+        updateGameState();
+        m_darkOverlay->deleteLater();
+    });
+
+    connect(dialog, &GameOverDialog::exitToMainMenu, this, &GameWindow::onHomeClicked);
+
+    connect(dialog, &GameOverDialog::finished, this, [this]() { m_darkOverlay->deleteLater(); });
+}
+
+
+void GameWindow::onPlayerChanged(int index) {
+    const auto& players = game->getPlayers();
+    if (!players[index]->isBot()) {
+        showTurnOverlay(players[index]->getName());
+    }
+    else {
+        m_turnOverlay->hide();
+        // Немедленный ход бота
+        QTimer::singleShot(500, this, [this]() {
+            processMove(DominoTile(-1, -1)); // Запуск автоматического хода
+        });
+    }
+    updateGameState();
+}
+
+void GameWindow::showTurnOverlay(const QString& name) {
+    if (!game->getCurrentPlayer()->isBot() && !game->getNextPlayer()->isBot()) {
+        m_turnLabel->setText(QString("Ваш ход, %1\nНажмите пробел").arg(name));
+        m_turnOverlay->setGeometry(rect());
+        m_turnOverlay->raise();
+        m_turnOverlay->show();
+    } else {
+        m_turnOverlay->hide();
+    }
+}
+
+// Обработка нажатия пробела
+void GameWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Space && m_turnOverlay->isVisible()) {
+        m_turnOverlay->hide();
+    }
+    QWidget::keyPressEvent(event);
+}
+
+void GameWindow::clearHighlights() {
+    // Удалить все элементы подсветки со сцены
+    QList<QGraphicsItem*> items = scene->items();
+    for (QGraphicsItem* item : items) {
+        if (dynamic_cast<ClickableRect*>(item)) {
+            scene->removeItem(item);
+            delete item;
+        }
+    }
+}
+
+void GameWindow::writeGameStats() {
+    QString filePath = "C:/Users/Sopha/Downloads/tech_prog/domino/stats.json";
+    QFile file(filePath);
+    QJsonArray statsArray;
+
+    // Чтение существующих данных
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+        statsArray = doc.array();
+        file.close();
+    }
+
+    // Создание новой записи для каждого игрока
+    QDateTime currentDateTime = QDateTime::currentDateTime();
+    QString gameId = QString::number(currentDateTime.toSecsSinceEpoch());
+
+    for (Player* player : game->getPlayers()) {
+        if (!player) continue; // Проверка на nullptr
+
+        QJsonObject entry;
+        entry["game_id"] = gameId;
+        entry["name"] = player->getName().isEmpty() ? "Unknown" : player->getName(); // Защита от пустого имени
+        entry["wins"] = player->getWins();
+        entry["points"] = player->getScore();
+        entry["rounds"] = game->getCurrentRound();
+        entry["players"] = game->getPlayers().size();
+        entry["date"] = currentDateTime.toString("yyyy-MM-dd");
+
+        // Формируем sortKey с учетом всех критериев
+        entry["sortKey"] = QString("%1-%2-%3")
+                               .arg(entry["points"].toInt(), 10, 10, QChar('0'))
+                               .arg(-entry["rounds"].toInt(), 10, 10, QChar('0'))
+                               .arg(currentDateTime.toString("yyyyMMddHHmmss")); // Уникальный ключ для сортировки
+
+        statsArray.append(entry);
+        qDebug() << "Запись игрока:" << entry["name"] << entry["points"] << entry["rounds"];
+    }
+
+    // Сортировка через временный список объектов
+    QList<QJsonObject> entries;
+    for (const QJsonValue& val : statsArray) {
+        entries.append(val.toObject());
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const QJsonObject& a, const QJsonObject& b) {
+        return a["sortKey"].toString() < b["sortKey"].toString();
+    });
+
+    // Перезаписываем массив
+    statsArray = QJsonArray();
+    for (const QJsonObject& obj : entries) {
+        statsArray.append(obj);
+    }
+
+    // Сохранение в файл
+    QFile outFile(filePath);
+    if (outFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        outFile.write(QJsonDocument(statsArray).toJson());
+        outFile.close();
+    } else {
+        qDebug() << "Ошибка записи в файл:" << outFile.errorString();
+    }
+}
+
+void GameWindow::updateUI() {
+    bool canMove = game->currentPlayerCanMove();
+    ui->pushButton_skip->setEnabled(!game->getCurrentPlayer()->isBot() && !canMove); // Активируем кнопку, если ходов нет
+}
+
+void GameWindow::on_pushButton_skip_clicked() {
+    if (!game->currentPlayerCanMove() && game->getBazaar()->isEmpty() && !game->checkForBlockedGame()) {
+        game->makeMove();     // Переход к следующему игроку
+        updateGameState();      // Обновление состояния игры
+        updateHandDisplay();
+    }
+}
+
+// void GameWindow::highlightValidTiles() {
+//     if (!highlightEnabled) return; // Если подсветка отключена
+
+//     // Получить текущего игрока и доступные ходы
+//     Player* currentPlayer = players[currentPlayerIndex];
+//     QList<DominoTile> validTiles = getValidTiles(currentPlayer->getHand());
+
+//     // Подсветить домино в интерфейсе
+//     for (auto& tile : validTiles) {
+//         // Найти виджеты домино и изменить их стиль
+//         tileWidget->setStyleSheet("border: 2px solid #ff0000;");
+//     }
+// }
+
+void GameWindow::updateReserveLabel(bool showReserve) {
+    if (showReserve) {
+        ui->labelReserve->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
+    } else {
+        ui->labelReserve->setText("");
+    }
+}
