@@ -129,10 +129,12 @@ void DominoLabel::drawDots(QPainter &painter, int value, const QRect &area) {
 }
 
 
-void DominoLabel::setHighlighted(bool highlighted) {
-    setStyleSheet(highlighted
-                      ? "background: #e0e0e0; border: 2px solid red;"
-                      : "background: white; border: 1px solid black;");
+void DominoLabel::setHighlighted(bool highlighted, QColor color) {
+    if (highlighted) {
+        setStyleSheet(QString("background: #e0e0e0; border: 2px solid %1;").arg(color.name()));
+    } else {
+        setStyleSheet("background: white; border: 1px solid black;");
+    }
 }
 
 void DominoLabel::setLineVisible(bool visible) {

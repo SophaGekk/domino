@@ -25,7 +25,7 @@ public:
     Bazaar();
 
     void initialize();
-
+    void clear() { tiles.clear(); }
     bool isEmpty() const;
     DominoTile drawTile();
     int remainingTilesCount() const;

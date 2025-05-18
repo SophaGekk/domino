@@ -7,22 +7,20 @@ BazaarOverlay::BazaarOverlay(Bazaar* bazaar, QWidget* parent)
     setWindowModality(Qt::ApplicationModal);
     centerWindow(); // Центрирование
 
-    setStyleSheet(R"(
-    QWidget {
-        background: white;
-        border: 2px solid #444;
-        border-radius: 8px;
-    }
-    QLabel {
-        padding: 10px;
-    }
-)");
-    setWindowModality(Qt::ApplicationModal);
-
     QPushButton* closeBtn = new QPushButton("×", this);
-    closeBtn->setStyleSheet("font-size: 18px; border: none;");
+    closeBtn->setStyleSheet(R"(
+        QPushButton {
+            font-size: 18px;
+            border: none;
+            color: #444;
+        }
+        QPushButton:hover {
+            color: #ff4444;
+        }
+    )");
+    closeBtn->setFixedSize(24, 24);
+    closeBtn->move(width() - 34, 6);
     connect(closeBtn, &QPushButton::clicked, this, &BazaarOverlay::close);
-    closeBtn->move(width() - 30, 10);
 }
 
 

@@ -34,14 +34,6 @@ MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::Main
             backgroundMusic->play();         // Запуск с начала
         }
     });
-    connect(backgroundMusic, &QMediaPlayer::errorOccurred, this, [](QMediaPlayer::Error error, const QString &errorString) {
-        qDebug() << "Ошибка воспроизведения:" << errorString;
-    });
-
-    connect(backgroundMusic, &QMediaPlayer::mediaStatusChanged, this, [](QMediaPlayer::MediaStatus status) {
-        qDebug() << "Статус медиа:" << status;
-    });
-
 
 
     QSettings settings("MyCompany", "DominoGame");
@@ -65,39 +57,23 @@ MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::Main
 }
 
 void MainWindow::onPlayClicked() {
-    /*QDialog startDialog(this);
-    QVBoxLayout layout(&startDialog);
-
-    QPushButton newGameBtn("Новая игра");
-    QPushButton loadGameBtn("Загрузить игру");
-
-    connect(&newGameBtn, &QPushButton::clicked, [&]() {
-        startNewGame();
-        startDialog.accept();
-    });
-
-    connect(&loadGameBtn, &QPushButton::clicked, [&]() {
-        if(loadSavedGame()) {
-            startDialog.accept();
-        }
-    });
-
-    layout.addWidget(&newGameBtn);
-    layout.addWidget(&loadGameBtn);
-
-    if(startDialog.exec() == QDialog::Accepted) {
-        this->hide();
-        gameWindow->show();
-    }*/
     QSettings settings("MyCompany", "DominoGame");
     int players = settings.value("players", 2).toInt();
     int bots = settings.value("bots", 0).toInt();
-    bool showReserve = settings.value("showReserve", false).toBool();
-    int humanPlayers = players - bots;
+    bool showReserve = settings.value("showReserve", true).toBool();
 
+    // Если игра уже запущена и не завершена - просто показываем окно
+    if (gameWindow && !gameWindow->isGameOver()) {
+        gameWindow->show();
+        this->hide();
+        return;
+    }
+
+    // Если игра завершена или не существует - создаем новую
+    int humanPlayers = players - bots;
     NicknameDialog dialog(humanPlayers, this);
-    if (dialog.exec() == QDialog::Accepted) { // Убрать лишнее условие
-        // Удалить старую игру, если она существует
+
+    if (dialog.exec() == QDialog::Accepted) {
         if (gameWindow) {
             delete gameWindow;
             gameWindow = nullptr;
@@ -105,42 +81,18 @@ void MainWindow::onPlayClicked() {
 
         names = dialog.getNames();
         gameWindow = new GameWindow(players, bots, showReserve, names);
+        gameWindow->setHighlightEnabled(settings.value("highlight", false).toBool());
         connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
 
         if (settings.value("soundEnabled", true).toBool()) {
             backgroundMusic->play();
         }
 
-        gameWindow->show(); // Показать новое окно игры
+        gameWindow->show();
         this->hide();
     }
 }
 
- void MainWindow::startNewGame() {
-    QSettings settings("MyCompany", "DominoGame");
-    gameWindow = new GameWindow(
-        settings.value("players", 2).toInt(),
-        settings.value("bots", 0).toInt(),
-        settings.value("showReserve", true).toBool(),
-        names
-        );
-    gameWindow->setIsNewGame(true);
-}
-
-bool MainWindow::loadSavedGame() {
-    QString filename = "C:/Users/Sopha/Downloads/tech_prog/domino/my_save.sav";
-    if(filename.isEmpty()) return false;
-
-    try {
-        gameWindow = new GameWindow(2,0, true, names);
-        gameWindow->game->loadGame(filename);  // Метод загрузки
-        gameWindow->setIsNewGame(false);
-        return true;
-    } catch(...) {
-        QMessageBox::critical(this, "Ошибка", "Не удалось загрузить игру");
-        return false;
-    }
-}
 
 bool MainWindow::highlightEnabled() const {
     return isHighlightEnabled;
@@ -198,53 +150,58 @@ void MainWindow::onStatsClicked() {
 }
 
 void MainWindow::applySettings(int players, int bots, bool showReserve, bool soundEnabled, bool highlight) {
-    if (!checkCurrentGame()) {
-        return; // Отмена изменений
-    }
-
-
+    // Сохраняем настройки, которые не требуют перезапуска
     QSettings settings("MyCompany", "DominoGame");
-    settings.setValue("players", players);
-    settings.setValue("bots", bots);
     settings.setValue("showReserve", showReserve);
     settings.setValue("soundEnabled", soundEnabled);
     settings.setValue("highlight", highlight);
 
-    currentPlayers = players;
-    currentBots = bots;
+    // Динамическое обновление звука
+    //soundEffect->setMuted(!soundEnabled);
     if (soundEnabled) {
         backgroundMusic->play();
     } else {
         backgroundMusic->stop();
     }
-    if (gameWindow) {
-        delete gameWindow;
-        gameWindow = new GameWindow(players, bots, showReserve, names);
-        connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
-        gameWindow->show();
+
+    // Проверяем, изменились ли параметры, требующие перезапуска
+    if (players != currentPlayers || bots != currentBots) {
+        if (!checkCurrentGame()) return;
+
+        settings.setValue("players", players);
+        settings.setValue("bots", bots);
+        currentPlayers = players;
+        currentBots = bots;
+
+        // Пересоздаем игру только если она активна
+        if (gameWindow && !gameWindow->isGameOver()) {
+            delete gameWindow;
+            gameWindow = new GameWindow(players, bots, showReserve, names);
+            gameWindow->setHighlightEnabled(highlight);
+            connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
+            gameWindow->show();
+        }
     }
-
-    soundEffect->setMuted(!soundEnabled);
 }
-
 bool MainWindow::checkCurrentGame() {
-    QSettings settings("MyCompany", "DominoGame");
-    int newPlayers = settings.value("players", 2).toInt();
-    int newBots = settings.value("bots", 0).toInt();
-
-    if (gameWindow && !gameWindow->isGameOver() &&
-        (newPlayers != currentPlayers || newBots != currentBots))
-    {
+    if (gameWindow && !gameWindow->isGameOver()) {
         QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(this, "Подтверждение",
-                                      "Изменение количества игроков/ботов требует перезапуска игры!\n"
-                                      "Вы уверены, что хотите продолжить?",
-                                      QMessageBox::Yes|QMessageBox::No);
-        return (reply == QMessageBox::Yes);
+        reply = QMessageBox::question(
+            this,
+            "Подтверждение",
+            "Изменение настроек требует перезапуска игры!\nВы уверены?",
+            QMessageBox::Yes | QMessageBox::No
+            );
+
+        if (reply == QMessageBox::Yes) {
+            delete gameWindow;
+            gameWindow = nullptr;
+            return true;
+        }
+        return false;
     }
     return true;
 }
-
 void MainWindow::saveCurrentSettings() {
     if (settingsWindow) {
         settingsWindow->loadSettings();

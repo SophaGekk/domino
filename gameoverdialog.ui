@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>213</width>
-    <height>264</height>
+    <width>266</width>
+    <height>375</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -49,8 +49,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>191</width>
-        <height>194</height>
+        <width>244</width>
+        <height>305</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="playersLayout"/>

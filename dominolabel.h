@@ -10,7 +10,7 @@ class DominoLabel : public QLabel {
 public:
     explicit DominoLabel(QWidget *parent = nullptr);
     void setDots(int left, int right, bool isVertical, bool m_lineVisible);
-    void setHighlighted(bool highlighted);
+    void setHighlighted(bool highlighted, QColor color = Qt::red);
     void setLineVisible(bool visible);
     void drawDotsHorizontal(QPainter& painter);
     void drawDotsVertical(QPainter& painter);

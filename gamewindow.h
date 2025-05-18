@@ -24,7 +24,6 @@ class GameWindow : public QWidget {
 
 public:
     explicit GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, QWidget *parent = nullptr);
-    void setShowReserve(bool show);
     void setHighlightEnabled(bool highlight);
     void setPlayersCount(int count);
     void setBotCount(int count);
@@ -67,12 +66,20 @@ public:
     void onTextChanged(const QString& text);
     void sendChatMessage();
 
+    void highlightValidTiles();
+    void handleNoValidMoves();
+    void clearHighlightItems();
+
 signals:
     void returnToMainMenu();
 
+public slots:
+    void updateGameState(); // Обновление интерфейса
+    void enableSpaceKey() { m_spaceKeyEnabled = true; }
+    void disableSpaceKey() { m_spaceKeyEnabled = false; }
+
 private slots:
     void updateChatHistory(const QString& formattedMessage);
-    void updateGameState(); // Обновление интерфейса
     void onHomeClicked();   // Обработка кнопки "Домой"
     void onReserveClicked();
     void updateUI();
@@ -111,7 +118,9 @@ private:
     DominoTile selectedTile;
     BazaarOverlay* m_bazaarOverlay;
 
-    ClickableLabel* labelReserve;
+    ClickableLabel* labelReserve ;
+    QPushButton* reserveButton;
+
     QGraphicsOpacityEffect* m_parentEffect;
     QWidget* m_darkOverlay; // Виджет для затемнения
 
@@ -125,6 +134,13 @@ private:
 
     bool showReserve;
     const QStringList &playerNames;
+    QList<QGraphicsItem*> highlightItems; // Храним элементы подсветки
+
+    bool isGameOverShown = false;
+    bool gameOverShown = false;
+    bool m_spaceKeyEnabled;
+    bool isHandleNoValidMoves = false;
+    bool isValidMessage = false;
 };
 
 #endif // GAMEWINDOW_H

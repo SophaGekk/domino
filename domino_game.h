@@ -39,8 +39,7 @@ public:
     Player* getFourthPlayer();
 
     void startNewGame(const QStringList &playerNames);
-    void saveGame(const QString& filename);
-    void loadGame(const QString& filename);
+
     void saveStatistics(const QString& filename);
     void startNewRound(const QStringList &playerNames);
     // Геттеры для доступа к состоянию игры
@@ -70,12 +69,11 @@ public:
 
     void makeMove() {
         if (isGameOver()) {
-            calculateScores();
-            int winnerIndex = determineWinner();
-            emit gameEnded(winnerIndex, getScores());
-            return;
+            emit gameEnded(determineWinner(), getScores());
+            return; // Прекращаем дальнейшие действия
         }
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        qDebug() << "New player index:" << currentPlayerIndex;
         emit playerChanged(currentPlayerIndex);
     }
     void calculateScores();

@@ -55,9 +55,6 @@ void DominoGame::initializePlayers(const QStringList &playerNames) {
         players.append(new HumanPlayer(name));
     }
 
-    // for (int i = 0; i < playerCount - BotCount; ++i) {
-    //     players.append(new HumanPlayer(QString("Player %1").arg(i + 1)));
-    // }
     for (int i = 0; i < BotCount; ++i) {
         players.append(new BotPlayer(QString("Bot %1").arg(i + 1)));
     }
@@ -133,6 +130,7 @@ bool DominoGame::isGameOver() const {
 
     // Проверяем, есть ли игрок без костяшек
     for (Player* player : players) {
+        qDebug() << "Player" << player->getName() << "hand size:" << player->getHandSize();
         if (player->getHandSize() == 0) {
             return true;
         }
@@ -233,99 +231,6 @@ int DominoGame::determineFishWinner() const {
     return winnerIndex;
 }
 
-void DominoGame::saveGame(const QString& filename) {
-    QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning() << "Could not save game to" << filename;
-        return;
-    }
-
-    QDataStream out(&file);
-    out.setVersion(QDataStream::Qt_5_15);
-
-    // Запись версии формата
-    const quint32 magic = 0x44F1A9B3;
-    out << magic;
-
-    // Основные параметры игры
-    out << gameId
-        << players.size()
-        << currentPlayerIndex
-        << currentRound
-        << gameEnd;
-
-    // Сохранение базара
-    QVector<DominoTile> bazaarTiles = bazaar->getRemainingTiles();
-    out << bazaarTiles;
-
-    // Сохранение доски
-    out << board;
-
-    // Сохранение игроков
-    for (Player* player : players) {
-        out << player->getName()
-        << player->getHand()
-        << player->getScore()
-        << player->isBot(); // Сохраняем тип игрока
-    }
-
-    file.close();
-}
-
-void DominoGame::loadGame(const QString& filename) {
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Could not load game from" << filename;
-        return;
-    }
-
-    QDataStream in(&file);
-    in.setVersion(QDataStream::Qt_5_15);
-
-    // Проверка версии формата
-    quint32 magic;
-    in >> magic;
-    if (magic != 0x44F1A9B3) {
-        qWarning() << "Invalid save file format";
-        return;
-    }
-
-    // Чтение основных параметров
-    in >> gameId
-        >> playerCount
-        >> currentPlayerIndex
-        >> currentRound
-        >> gameEnd;
-
-    // Восстановление базара
-    QVector<DominoTile> bazaarTiles;
-    in >> bazaarTiles;
-    bazaar->setTiles(bazaarTiles);
-
-    // Восстановление доски
-    in >> board;
-
-    // Восстановление игроков
-    players.clear();
-    for (int i = 0; i < playerCount; ++i) {
-        QString name;
-        QVector<DominoTile> hand;
-        int score;
-        bool isBot;
-
-        in >> name >> hand >> score >> isBot;
-
-        Player* player = isBot ?
-                             static_cast<Player*>(new BotPlayer(name)) :
-                             new HumanPlayer(name);
-
-        player->setHand(hand);
-        player->setScore(score);
-        players.append(player);
-    }
-
-    file.close();
-}
 
 void DominoGame::saveStatistics(const QString& filename) {
     QFile file(filename);
@@ -448,13 +353,33 @@ Player* DominoGame::getFourthPlayer() {
     return nullptr; // Обработка ошибки при необходимости
 }
 
-void DominoGame::startNewRound(const QStringList &playerNames) {
-    // Сбросить доску, оставить счет
+void DominoGame::startNewRound(const QStringList& playerNames) {
+    // Сохраняем статистику игроков
+    QVector<int> scores;
+    for (Player* player : players) {
+        scores.append(player->getScore());
+    }
+
+    // Полная переинициализация игры
+    initializePlayers(playerNames);
+
+    // Восстанавливаем счет
+    for (int i = 0; i < players.size(); ++i) {
+        if (i < scores.size()) {
+            players[i]->setScore(scores[i]);
+        }
+    }
+
+    // Сброс состояния
     board.clear();
-
+    bazaar->clear();
+    currentPlayerIndex = 0;
     currentRound++;
-    startNewGame(playerNames);
+    gameEnd = false;
 
+    // Новая раздача
+    dealTiles();
+    determineFirstPlayer();
 }
 
 bool DominoGame::currentPlayerCanMove() const {

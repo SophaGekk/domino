@@ -14,12 +14,16 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTimer>
+#include <QToolTip>
 #include "chatmanager.h"
 
 
-GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, QWidget *parent)
+GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const QStringList &playerNames, QWidget *parent)
     : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount), playerNames(playerNames) {
     ui->setupUi(this);
+    m_spaceKeyEnabled = false;
+    gameOverShown = false;
+    showReserve = isShowReserve;
     // Настройки окна
     setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
     setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
@@ -39,8 +43,10 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, const Q
     connect(game, &DominoGame::playerMoved, this, &GameWindow::updateGameState);
     connect(game, &DominoGame::gameEnded, this, &GameWindow::showGameOver);
 
-    labelReserve = new ClickableLabel("Базар", this);
-    connect(labelReserve, &ClickableLabel::clicked, this, &GameWindow::onReserveClicked);
+    reserveButton = new QPushButton(this);
+    reserveButton->setObjectName("reserveButton");
+    ui->labelReserveLayout->addWidget(reserveButton); // Добавьте кнопку в layout
+    connect(reserveButton, &QPushButton::clicked, this, &GameWindow::onReserveClicked);
 
 
 
@@ -99,8 +105,7 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, const Q
     connect(messageInput, &QLineEdit::returnPressed, this, &GameWindow::sendChatMessage);
     connect(chatManager, &ChatManager::newMessage, this, &GameWindow::updateChatHistory);
 
-    connect(ui->pushButton_skip, &QPushButton::clicked,
-            this, &GameWindow::on_pushButton_skip_clicked);
+    connect(ui->pushButton_skip, &QPushButton::clicked, this, &GameWindow::on_pushButton_skip_clicked);
 
     updateGameState();
     setupHands();
@@ -109,6 +114,22 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool showReserve, const Q
 
 
 void GameWindow::updateGameState() {
+    if (game->isGameOver()) {
+        int winnerIndex = game->determineWinner();
+        Player* winner = game->getPlayers()[winnerIndex];
+
+        // Блокируем дальнейшие действия для ботов
+        game->blockSignals(true);
+
+        // Показываем сообщение только один раз
+        if (!gameOverShown) {
+            gameOverShown = true;
+            QMessageBox::information(this, "Игра окончена",
+                                     "Победитель: " + winner->getName());
+        }
+        return;
+    }
+
     // Обновление информации о раунде
     ui->labelRound->setText("Раунд: " + QString::number(game->getCurrentRound()));
     // Обновление резерва
@@ -153,14 +174,15 @@ void GameWindow::updateGameState() {
 
 
     updateHandDisplay();
-    // Автоматическая проверка конца игры
-    if (game->isGameOver()) {
-        game->calculateScores();
-        int winner = game->determineWinner();
-        QMessageBox::information(this, "Игра окончена", "Победитель: " + game->getPlayers()[winner]->getName());
+    // Подсветка допустимых ходов
+    if (isHighlightEnabled && !game->getCurrentPlayer()->isBot() && !game->isGameOver()) {
+        highlightValidTiles();
+
+    } else {
+        clearHighlights();
     }
+
     ui->pushButton_skip->setEnabled(!game->getCurrentPlayer()->isBot() && !game->currentPlayerCanMove() && game->getBazaar()->isEmpty()); // Активируем кнопку, если ходов нет
-    game->saveGame("C:/Users/Sopha/Downloads/tech_prog/domino/my_save.sav");
 }
 
 void GameWindow::sendChatMessage() {
@@ -186,9 +208,12 @@ void GameWindow::clearBoard() {
 }
 
 void GameWindow::onHomeClicked() {
+    if(m_spaceKeyEnabled){game->blockSignals(true);}
+    else{game->blockSignals(false);}
     emit returnToMainMenu();
     m_turnOverlay->hide();
-    this->close();
+    this->hide();
+
 }
 
 GameWindow::~GameWindow() {
@@ -198,11 +223,6 @@ GameWindow::~GameWindow() {
 }
 
 
-void GameWindow::setShowReserve(bool show) {
-    isReserveVisible = show;
-    ui->labelReserve->setVisible(show); // Если резерв отображается через QLabel
-}
-
 void GameWindow::setHighlightEnabled(bool highlight) {
     isHighlightEnabled = highlight;
     // Логика подсветки (например, обновить вид костяшек)
@@ -210,19 +230,17 @@ void GameWindow::setHighlightEnabled(bool highlight) {
 
 void GameWindow::setPlayersCount(int count) {
     currentPlayersCount = count;
-    // Применение при следующем запуске игры
 }
 
 void GameWindow::setBotCount(int count) {
     BotCount = count;
-    // Применение при следующем запуске игры
 }
 
 
 void GameWindow::setupHands() {
     for (DominoLabel* label : bottomHandLabels) {
         connect(label, &DominoLabel::clicked, this, [this, label]() {
-            handleDominoClick(label);
+            handleDominoClick(label), isValidMessage = false;
         });
     }
 }
@@ -234,7 +252,6 @@ void GameWindow::handleDominoClick(DominoLabel* clickedLabel) {
 
     selectedTile = getTileFromLabel(clickedLabel);
     clickedLabel->setHighlighted(true);
-    //showPossibleMoves(selectedTile);
 
     // Проверка возможности хода
     DominoTile tile = getTileFromLabel(clickedLabel);
@@ -268,20 +285,23 @@ void GameWindow::handleDominoClick(DominoLabel* clickedLabel) {
     if (isValid) {
         showPossibleMoves(tile);
     } else {
-        QMessageBox::warning(this, "Ошибка", "Невозможно сделать ход этой костяшкой.");
+        if(!isValidMessage)
+        {
+            isValidMessage = true;
+            QMessageBox::warning(this, "Ошибка", "Невозможно сделать ход этой костяшкой.");
+
+        }
         clearHighlights();
         clearSelection();
+        return;
     }
 
 }
 
 
 void GameWindow::processMove(DominoTile tile) {
-    updateHandDisplay();   // Перерисовать руки
-    updateBoard();         // Обновить игровое поле
-    updateHighlightedAreas();
-
-    while (game->getCurrentPlayer()->isBot()) {
+    if (game->isGameOver()) return;
+    while (game->getCurrentPlayer()->isBot() && !game->isGameOver()) {
         // Получаем текущие концы доски
         QVector<int> ends = game->getBoardEnds();
         int leftEnd;
@@ -326,8 +346,7 @@ void GameWindow::processMove(DominoTile tile) {
 }
 
 void GameWindow::showPossibleMoves(const DominoTile& tile) {
-    // Добавить индикаторы на поле (например, стрелки)
-
+    if (game->getCurrentPlayer()->isBot() || !tile.isValidNumer()) return;
     QVector<int> ends = game->getBoardEnds();
 
     // Если стол пуст, подсветить центр для первого хода
@@ -494,7 +513,7 @@ void GameWindow::drawArrow(const QPoint& pos, bool isLeft, const DominoTile& til
         // Смещаем вниз, чтобы был над домино игрока, но не перекрывал стол
         highlightPos.setY(visibleArea.bottom() - 100);
         if (isLeft) {
-            highlightPos.setX(visibleArea.left() + 50); // Левый край
+            highlightPos.setX(visibleArea.left() + 50 + width); // Левый край
         } else {
             highlightPos.setX(visibleArea.right() - 50 - width); // Правый край
         }
@@ -514,9 +533,6 @@ void GameWindow::drawArrow(const QPoint& pos, bool isLeft, const DominoTile& til
     } else {
         connect(highlight, &ClickableRect::clicked, this, &GameWindow::onRightEndClicked);
     }
-
-
-
     scene->addItem(highlight);
 }
 
@@ -624,18 +640,6 @@ void GameWindow::updateHandDisplay() {
             for (int i = 0; i < leftHand.size(); ++i) {
                 leftHandLabels[i]->setLineVisible(false); // Скрыть точки
                 leftHandLabels[i]->show();
-            }
-            if(BotCount == 1)
-            {
-
-            }
-            if(BotCount == 2)
-            {
-
-            }
-            if(BotCount == 3)
-            {
-
             }
         }
 
@@ -824,10 +828,13 @@ void GameWindow::handleBazaarTileSelected(const DominoTile& tile) {
     game->getBazaar()->removeTile(tile);
     // Обновить интерфейс
     updateGameState();
-    ui->labelReserve->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
 }
 
 void GameWindow::showGameOver() {
+    if (isGameOverShown) return; // Защита от повторного вызова
+    isGameOverShown = true;
+    game->calculateScores();
+    int winnerIndex = game->determineWinner();
     // Затемнение фона
     m_darkOverlay = new QWidget(this);
     m_darkOverlay->setStyleSheet("background: rgba(0, 0, 0, 150);");
@@ -835,11 +842,15 @@ void GameWindow::showGameOver() {
     m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_darkOverlay->show();
 
-    int winnerIndex = game->determineWinner();
     Player* winner = game->getPlayers()[winnerIndex];
-    winner->addWin();
-    writeGameStats();
-    // Окно результатов
+    // Запись статистики с обработкой ошибок
+    try {
+        winner->addWin();
+        writeGameStats();
+    } catch (const std::exception& e) {
+        qCritical() << "Ошибка записи статистики:" << e.what();
+    }
+
     GameOverDialog* dialog = new GameOverDialog(game->getPlayers(), this);
     dialog->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -848,14 +859,12 @@ void GameWindow::showGameOver() {
     dialog->show();
 
     connect(dialog, &GameOverDialog::newRoundRequested, this, [this]() {
-        game->startNewRound(playerNames), clearBoard();  // Новый метод в DominoGame
+        game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"), ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();  // Новый метод в DominoGame
         updateGameState();
         m_darkOverlay->deleteLater();
     });
 
     connect(dialog, &GameOverDialog::exitToMainMenu, this, &GameWindow::onHomeClicked);
-
-    connect(dialog, &GameOverDialog::finished, this, [this]() { m_darkOverlay->deleteLater(); });
 }
 
 
@@ -880,15 +889,21 @@ void GameWindow::showTurnOverlay(const QString& name) {
         m_turnOverlay->setGeometry(rect());
         m_turnOverlay->raise();
         m_turnOverlay->show();
+        enableSpaceKey();
     } else {
         m_turnOverlay->hide();
+        disableSpaceKey();
     }
 }
 
 // Обработка нажатия пробела
 void GameWindow::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Space && m_turnOverlay->isVisible()) {
-        m_turnOverlay->hide();
+    if (event->key() == Qt::Key_Space) {
+        if (m_spaceKeyEnabled && m_turnOverlay->isVisible()) {
+            m_turnOverlay->hide(); // Только скрытие оверлея
+            event->accept(); // Запрет дальнейшей обработки пробела
+        }
+        return; // Выход без передачи события родителю
     }
     QWidget::keyPressEvent(event);
 }
@@ -901,6 +916,9 @@ void GameWindow::clearHighlights() {
             scene->removeItem(item);
             delete item;
         }
+    }
+    for (DominoLabel* label : bottomHandLabels) {
+        label->setHighlighted(false);
     }
 }
 
@@ -981,24 +999,48 @@ void GameWindow::on_pushButton_skip_clicked() {
     }
 }
 
-// void GameWindow::highlightValidTiles() {
-//     if (!highlightEnabled) return; // Если подсветка отключена
+void GameWindow::highlightValidTiles() {
+    // Проверка на необходимость действий при отсутствии ходов
+    if (!game->currentPlayerCanMove() && !isHandleNoValidMoves) {
+        isHandleNoValidMoves = true;
+        handleNoValidMoves();
+    }
+    QVector<int> ends = game->getBoardEnds();
+    const QVector<DominoTile>& hand = game->getCurrentPlayer()->getHand();
 
-//     // Получить текущего игрока и доступные ходы
-//     Player* currentPlayer = players[currentPlayerIndex];
-//     QList<DominoTile> validTiles = getValidTiles(currentPlayer->getHand());
+    for (DominoLabel* label : bottomHandLabels) {
+        DominoTile tile = getTileFromLabel(label);
+        bool isValid = false;
 
-//     // Подсветить домино в интерфейсе
-//     for (auto& tile : validTiles) {
-//         // Найти виджеты домино и изменить их стиль
-//         tileWidget->setStyleSheet("border: 2px solid #ff0000;");
-//     }
-// }
+        if (ends.isEmpty()) {
+            // Проверка первого хода
+            bool isDouble = tile.isDouble();
+            isValid = isDouble && (tile.getLeftValue() != 0);
+        } else {
+            isValid = tile.getLeftValue() == ends.first() ||
+                      tile.getLeftValue() == ends.last() ||
+                      tile.getRightValue() == ends.first() ||
+                      tile.getRightValue() == ends.last();
+        }
+
+        label->setHighlighted(isValid, Qt::green);
+    }
+}
+void GameWindow::handleNoValidMoves() {
+    if (!game->getBazaar()->isEmpty()) {
+        QMessageBox::information(this, "Подсказка",
+                                 "Нет подходящих ходов. Возьмите костяшку из базара!");
+    } else {
+        QMessageBox::information(this, "Подсказка",
+                                 "Базар пуст. Нажмите 'Пропустить ход'");
+        ui->pushButton_skip->setEnabled(true);
+    }
+    isHandleNoValidMoves = false;
+}
 
 void GameWindow::updateReserveLabel(bool showReserve) {
-    if (showReserve) {
-        ui->labelReserve->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
-    } else {
-        ui->labelReserve->setText("");
+    reserveButton->setText("Резерв: " + QString::number(game->getBazaar()->remainingTilesCount()));
+    if (!showReserve) {
+        reserveButton->setText("Резерв ");
     }
 }

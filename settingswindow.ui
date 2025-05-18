@@ -81,8 +81,8 @@ QCheckBox::indicator:unchecked { image: url(:/icon/off.png); }
    <widget class="QLabel" name="labelSound">
     <property name="geometry">
      <rect>
-      <x>10</x>
-      <y>140</y>
+      <x>20</x>
+      <y>150</y>
       <width>381</width>
       <height>45</height>
      </rect>
@@ -126,7 +126,7 @@ QCheckBox::indicator:unchecked { image: url(:/icon/off.png); }
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>220</y>
+      <y>240</y>
       <width>539</width>
       <height>45</height>
      </rect>
@@ -259,27 +259,6 @@ QCheckBox::indicator:unchecked { image: url(:/icon/off.png); }
     </property>
     <property name="text">
      <string>домино в резерве</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="labelHighlight_2">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>260</y>
-      <width>539</width>
-      <height>45</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>20</pointsize>
-     </font>
-    </property>
-    <property name="styleSheet">
-     <string>color:#222;</string>
-    </property>
-    <property name="text">
-     <string>домино</string>
     </property>
    </widget>
    <widget class="QWidget" name="verticalLayoutWidget">

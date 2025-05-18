@@ -3,14 +3,13 @@
 #include <QShortcut>
 
 
-SettingsWindow::SettingsWindow(QWidget *parent) : QWidget(parent), ui(new Ui::SettingsWindow), settings(new QSettings("MyCompany", "DominoGame")) {
+SettingsWindow::SettingsWindow(QWidget *parent) : QWidget(parent), ui(new Ui::SettingsWindow), m_settings("MyCompany", "DominoGame")  {
     ui->setupUi(this);
     // Настройки окна
     setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
     setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
     loadSettings();
 
-    // Добавьте кнопки в UI через Qt Designer или программно:
     okButton = new QPushButton("OK", this);
     cancelButton = new QPushButton("Отмена", this);
     ui->buttonLayout->addWidget(okButton); // Предполагается, что есть layout для кнопок
@@ -21,6 +20,8 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QWidget(parent), ui(new Ui::Se
     connect(cancelButton, &QPushButton::clicked, this, &SettingsWindow::onCancelClicked);
 
     // Подключение кнопок выбора количества игроков
+    //QSettings settings("MyCompany", "DominoGame");
+
 
     connect(ui->spinPlayers, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &SettingsWindow::validateBots);
@@ -72,11 +73,11 @@ void SettingsWindow::onCancelClicked() {
 
 void SettingsWindow::saveSettings() {
     // Сохраняем текущие значения из UI
-    settings->setValue("players", ui->spinPlayers->value());
-    settings->setValue("bots", ui->spinBots->value());
-    settings->setValue("showReserve", ui->checkReserve->isChecked());
-    settings->setValue("soundEnabled", ui->checkSound->isChecked());
-    settings->setValue("highlight", ui->checkHighlight->isChecked());
+    m_settings.setValue("players", ui->spinPlayers->value());
+    m_settings.setValue("bots", ui->spinBots->value());
+    m_settings.setValue("showReserve", ui->checkReserve->isChecked());
+    m_settings.setValue("soundEnabled", ui->checkSound->isChecked());
+    m_settings.setValue("highlight", ui->checkHighlight->isChecked());
 
     // Отправляем сигнал с новыми значениями
     emit settingsChanged(
@@ -86,7 +87,6 @@ void SettingsWindow::saveSettings() {
         ui->checkSound->isChecked(),
         ui->checkHighlight->isChecked()
         );
-    emit returnToMainMenu();
 }
 
 void SettingsWindow::loadSettings() {
@@ -100,7 +100,6 @@ void SettingsWindow::loadSettings() {
 
 SettingsWindow::~SettingsWindow() {
     delete ui;
-    delete settings;
 }
 
 

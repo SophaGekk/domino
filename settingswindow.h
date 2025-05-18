@@ -38,7 +38,7 @@ private slots:
 
 private:
     Ui::SettingsWindow *ui;
-    QSettings *settings;
+    QSettings m_settings;
     int currentPlayers = 2;
     int botCounts = 5;
     QPushButton *okButton;

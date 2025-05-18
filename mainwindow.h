@@ -21,8 +21,7 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow(QWidget *parent = nullptr);
     bool highlightEnabled() const;
-    void startNewGame();
-    bool loadSavedGame();
+
 
 private slots:
     void saveCurrentSettings();
@@ -38,9 +37,7 @@ private:
     SettingsWindow *settingsWindow = nullptr;
     StatisticsWindow *statsWindow = nullptr;
     RulesWindow *ruleswindow = nullptr;
-    QSoundEffect *soundEffect;
-    QSoundEffect* tileSelectSound;
-    QSoundEffect* tilePlaceSound;
+
     QMediaPlayer* backgroundMusic;
     QAudioOutput* audioOutput;
     bool isHighlightEnabled = false;
