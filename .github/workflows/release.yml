@@ -25,10 +25,12 @@ jobs:
         cached: true
 
     - name: Add Qt to PATH
-      shell: cmd
+      shell: pwsh
       run: |
-        echo "Adding Qt to PATH"
-        echo "%QT_PATH%\bin" >> %GITHUB_PATH%
+        $qtBinPath = "${{ steps.setup-qt.outputs.qt-dir }}\bin"
+        echo "Adding Qt to PATH: $qtBinPath"
+        Add-Content $env:GITHUB_PATH "$qtBinPath"
+        Get-ChildItem -Path $qtBinPath
 
     - name: Build project with qmake and MinGW
       shell: cmd
