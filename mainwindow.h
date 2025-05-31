@@ -11,6 +11,11 @@
 #include <QSoundEffect>
 #include <QMediaPlayer>
 
+enum class SettingType {
+    Critical,    // Изменение игроков/ботов
+    NonCritical  // Настройки интерфейса/звука
+};
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; } // Исправлено: MainWindow вместо DominoWindow
 QT_END_NAMESPACE
@@ -21,6 +26,8 @@ class MainWindow : public QMainWindow {
 public:
     MainWindow(QWidget *parent = nullptr);
     bool highlightEnabled() const;
+    void applyNonCriticalSettings();
+    bool checkCurrentGame(SettingType settingType);
 
 
 private slots:
@@ -41,7 +48,6 @@ private:
     QMediaPlayer* backgroundMusic;
     QAudioOutput* audioOutput;
     bool isHighlightEnabled = false;
-    bool checkCurrentGame();
 
     int currentPlayers;
     int currentBots;

@@ -87,6 +87,10 @@ void MainWindow::onPlayClicked() {
         if (settings.value("soundEnabled", true).toBool()) {
             backgroundMusic->play();
         }
+        else
+        {
+            backgroundMusic->stop();
+        }
 
         gameWindow->show();
         this->hide();
@@ -152,56 +156,92 @@ void MainWindow::onStatsClicked() {
 void MainWindow::applySettings(int players, int bots, bool showReserve, bool soundEnabled, bool highlight) {
     // Сохраняем настройки, которые не требуют перезапуска
     QSettings settings("MyCompany", "DominoGame");
-    settings.setValue("showReserve", showReserve);
-    settings.setValue("soundEnabled", soundEnabled);
-    settings.setValue("highlight", highlight);
 
-    // Динамическое обновление звука
-    //soundEffect->setMuted(!soundEnabled);
+    // Проверяем, изменились ли параметры, требующие перезапуска
+    if (players != currentPlayers || bots != currentBots) {
+        if (checkCurrentGame(SettingType::Critical)){
+            // Сохранить настройки и пересоздать игру
+            settings.setValue("showReserve", showReserve);
+            settings.setValue("soundEnabled", soundEnabled);
+            settings.setValue("highlight", highlight);
+
+            settings.setValue("players", players);
+            settings.setValue("bots", bots);
+            currentPlayers = players;
+            currentBots = bots;
+
+            // Пересоздаем игру только если она активна
+            if (gameWindow && !gameWindow->isGameOver()) {
+                delete gameWindow;
+                gameWindow = new GameWindow(players, bots, showReserve, names);
+                gameWindow->setHighlightEnabled(highlight);
+                connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
+                gameWindow->show();
+            }
+        }
+    }
+    else{
+        if (checkCurrentGame(SettingType::NonCritical)){
+            // Сохранить настройки и продолжить игру
+            settings.setValue("showReserve", showReserve);
+            settings.setValue("soundEnabled", soundEnabled);
+            settings.setValue("highlight", highlight);
+        }
+    }
+
+    soundEnabled = settings.value("soundEnabled", true).toBool();
     if (soundEnabled) {
         backgroundMusic->play();
     } else {
         backgroundMusic->stop();
     }
-
-    // Проверяем, изменились ли параметры, требующие перезапуска
-    if (players != currentPlayers || bots != currentBots) {
-        if (!checkCurrentGame()) return;
-
-        settings.setValue("players", players);
-        settings.setValue("bots", bots);
-        currentPlayers = players;
-        currentBots = bots;
-
-        // Пересоздаем игру только если она активна
-        if (gameWindow && !gameWindow->isGameOver()) {
-            delete gameWindow;
-            gameWindow = new GameWindow(players, bots, showReserve, names);
-            gameWindow->setHighlightEnabled(highlight);
-            connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
-            gameWindow->show();
-        }
-    }
 }
-bool MainWindow::checkCurrentGame() {
-    if (gameWindow && !gameWindow->isGameOver()) {
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::question(
-            this,
-            "Подтверждение",
-            "Изменение настроек требует перезапуска игры!\nВы уверены?",
-            QMessageBox::Yes | QMessageBox::No
-            );
 
-        if (reply == QMessageBox::Yes) {
-            delete gameWindow;
-            gameWindow = nullptr;
+bool MainWindow::checkCurrentGame(SettingType settingType) {
+    if (gameWindow && !gameWindow->isGameOver()) {
+        if (settingType == SettingType::Critical) {
+            QMessageBox::StandardButton reply = QMessageBox::question(
+                this,
+                "Подтверждение",
+                "Изменение игроков требует перезапуска!\nПерезапустить игру?",
+                QMessageBox::Yes | QMessageBox::No
+                );
+
+            if (reply == QMessageBox::Yes) {
+                delete gameWindow;
+                gameWindow = nullptr;
+                return true; // Разрешить изменения
+            }
+            return false; // Отменить изменения
+        }
+        else {
+            // Для некритических настроек сразу сохраняем изменения
+            applyNonCriticalSettings();
             return true;
         }
-        return false;
     }
     return true;
 }
+
+void MainWindow::applyNonCriticalSettings() {
+    if (gameWindow) {
+        bool showReserve, soundEnabled, highlight;
+        QSettings settings("MyCompany", "DominoGame");
+        settings.setValue("showReserve", showReserve);
+        settings.setValue("soundEnabled", soundEnabled);
+        settings.setValue("highlight", highlight);
+
+        // Передаем текущие настройки в игровое окно
+        if (soundEnabled) {
+            backgroundMusic->play();
+        } else {
+            backgroundMusic->stop();
+        }
+        gameWindow->setHighlightEnabled(highlight);
+        gameWindow->setReserveVisible(showReserve);
+    }
+}
+
 void MainWindow::saveCurrentSettings() {
     if (settingsWindow) {
         settingsWindow->loadSettings();

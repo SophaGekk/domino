@@ -18,7 +18,6 @@ SOURCES += \
     bot_player.cpp \
     chatmanager.cpp \
     clickable_rect.cpp \
-    domino_tile_item.cpp \
     gameoverdialog.cpp \
     gamewindow.cpp \
     humanplayer.cpp \
@@ -38,7 +37,6 @@ HEADERS += \
     chatmanager.h \
     clickable_rect.h \
     clickablelabel.h \
-    domino_tile_item.h \
     dominolabel.h \
     gameoverdialog.h \
     gamewindow.h \
@@ -51,7 +49,8 @@ HEADERS += \
     bazaar.h \
     ruleswindow.h \
     settingswindow.h \
-    statisticswindow.h
+    statisticswindow.h \
+    test.h
 
 FORMS += \
     BazaarOverlay.ui \

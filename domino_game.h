@@ -46,6 +46,9 @@ public:
     const QVector<Player*>& getPlayers() const;
     const QVector<DominoTile>& getBoard() const;
     QVector<DominoTile>& getBoard();
+    void setBoard(const QVector<DominoTile>& newBoard) {
+        board = newBoard;
+    }
 
     QVector<int> getBoardEnds() const;
 
@@ -66,14 +69,13 @@ public:
 
     void setStartTileCount(int count);
     DominoTile getMaxTileWithoutDoubles() const;
-
+    void setCurrentPlayerIndex(int index);
     void makeMove() {
         if (isGameOver()) {
             emit gameEnded(determineWinner(), getScores());
             return; // Прекращаем дальнейшие действия
         }
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-        qDebug() << "New player index:" << currentPlayerIndex;
         emit playerChanged(currentPlayerIndex);
     }
     void calculateScores();
@@ -89,18 +91,19 @@ public:
 
     bool currentPlayerCanMove() const;
     void checkForFish();
+    void determineFirstPlayer();
 
 signals:
     void gameStarted();
     void playerMoved(int playerIndex, DominoTile til);
     void gameEnded(int winnerIndex, const QVector<int>& scores);
     void playerChanged(int currentPlayerIndex);
+    void spacePressed();
 
 
 private:
     void initializePlayers(const QStringList &playerNames);
     void dealTiles();
-    void determineFirstPlayer();
 
 
     int playerCount;

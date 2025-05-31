@@ -12,7 +12,6 @@ public:
     bool isDouble() const { return leftValue == rightValue; }
     int getTotalValue() const { return leftValue + rightValue; }
 
-    void rotate() { std::swap(leftValue, rightValue); }
 
     bool operator==(const DominoTile& other) const;
 

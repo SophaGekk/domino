@@ -208,8 +208,7 @@ void GameWindow::clearBoard() {
 }
 
 void GameWindow::onHomeClicked() {
-    if(m_spaceKeyEnabled){game->blockSignals(true);}
-    else{game->blockSignals(false);}
+
     emit returnToMainMenu();
     m_turnOverlay->hide();
     this->hide();
@@ -225,7 +224,6 @@ GameWindow::~GameWindow() {
 
 void GameWindow::setHighlightEnabled(bool highlight) {
     isHighlightEnabled = highlight;
-    // Логика подсветки (например, обновить вид костяшек)
 }
 
 void GameWindow::setPlayersCount(int count) {
@@ -279,7 +277,6 @@ void GameWindow::handleDominoClick(DominoLabel* clickedLabel) {
                    tile.getRightValue() == ends.first() || tile.getRightValue() == ends.last());
         qDebug() << "Ход:" << tile.getLeftValue() << "|" << tile.getRightValue();
         qDebug() << "Концы стола:" << ends.first() << "|" << ends.last();
-
     }
 
     if (isValid) {
@@ -359,7 +356,7 @@ void GameWindow::showPossibleMoves(const DominoTile& tile) {
         // Создать прямоугольник с контуром
         ClickableRect* rect = new ClickableRect();
         rect->setRect(centerX, centerY, 30, 70);
-        rect->setPen(QPen(Qt::green, 2));
+        rect->setPen(QPen(Qt::red, 2));
         rect->setData(0, "first_move"); // Пометить элемент для обработки
         connect(rect, &ClickableRect::clicked, this, &GameWindow::onFirstMoveClicked);
         scene->addItem(rect);
@@ -791,12 +788,12 @@ void GameWindow::updateHighlightedAreas() {
 
 QPoint GameWindow::getTilePosition(const DominoTile& tile) const {
     // Пример: поиск позиции по данным домино
-    for (auto item : scene->items()) {
-        DominoTileItem* tileItem = dynamic_cast<DominoTileItem*>(item);
-        if (tileItem && tileItem->getTile() == tile) {
-            return item->pos().toPoint();
-        }
-    }
+    // for (auto item : scene->items()) {
+    //     DominoTile* tileItem = dynamic_cast<DominoTile*>(item);
+    //     if (tileItem && tileItem->getTile() == tile) {
+    //         return item->pos().toPoint();
+    //     }
+    // }
     return QPoint(0, 0); // Заглушка
 }
 
@@ -885,10 +882,11 @@ void GameWindow::onPlayerChanged(int index) {
 
 void GameWindow::showTurnOverlay(const QString& name) {
     if (!game->getCurrentPlayer()->isBot() && !game->getNextPlayer()->isBot()) {
-        m_turnLabel->setText(QString("Ваш ход, %1\nНажмите пробел").arg(name));
+        m_turnLabel->setText(QString("Ваш ход, %1\nНажмите escape").arg(name));
         m_turnOverlay->setGeometry(rect());
         m_turnOverlay->raise();
         m_turnOverlay->show();
+        isHandleNoValidMoves = false;
         enableSpaceKey();
     } else {
         m_turnOverlay->hide();
@@ -896,12 +894,12 @@ void GameWindow::showTurnOverlay(const QString& name) {
     }
 }
 
-// Обработка нажатия пробела
+// Обработка нажатия esc
 void GameWindow::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Space) {
+    if (event->key() == Qt::Key_Escape) {
         if (m_spaceKeyEnabled && m_turnOverlay->isVisible()) {
             m_turnOverlay->hide(); // Только скрытие оверлея
-            event->accept(); // Запрет дальнейшей обработки пробела
+            event->accept(); // Запрет дальнейшей обработки esc
         }
         return; // Выход без передачи события родителю
     }
@@ -993,7 +991,10 @@ void GameWindow::updateUI() {
 
 void GameWindow::on_pushButton_skip_clicked() {
     if (!game->currentPlayerCanMove() && game->getBazaar()->isEmpty() && !game->checkForBlockedGame()) {
-        game->makeMove();     // Переход к следующему игроку
+        int nextIndex = (game->getCurrentPlayerIndex() + 1) % game->getPlayers().size();
+        game->setCurrentPlayerIndex(nextIndex);
+        emit game->playerChanged(nextIndex);     // Переход к следующему игроку
+        onPlayerChanged(nextIndex);
         updateGameState();      // Обновление состояния игры
         updateHandDisplay();
     }
@@ -1035,7 +1036,6 @@ void GameWindow::handleNoValidMoves() {
                                  "Базар пуст. Нажмите 'Пропустить ход'");
         ui->pushButton_skip->setEnabled(true);
     }
-    isHandleNoValidMoves = false;
 }
 
 void GameWindow::updateReserveLabel(bool showReserve) {

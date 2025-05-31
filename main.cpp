@@ -21,12 +21,13 @@
 #include "domino_tile.h"
 #include "mainwindow.h"
 #include "bazaar.h"
+#include "test.h"
 
-int main(int argc, char *argv[])
-{
+
+int main(int argc, char *argv[]){
     QApplication a(argc, argv);
-
     MainWindow  w;
+    runTests();
     w.show();
 
     return a.exec();

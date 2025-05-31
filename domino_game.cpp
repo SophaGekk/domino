@@ -42,6 +42,9 @@ Bazaar* DominoGame::getBazaar()  {
 int DominoGame::getCurrentPlayerIndex() const {
     return currentPlayerIndex;
 }
+void DominoGame::setCurrentPlayerIndex(int index) {
+    currentPlayerIndex = index;
+}
 int DominoGame::getNextPlayerIndex() const {
     return (currentPlayerIndex + 1) % players.size();;
 }
@@ -175,6 +178,7 @@ void DominoGame::startNewGame(const QStringList &playerNames) {
     gameEnd = false;
     emit gameStarted();
 }
+
 
 
 void DominoGame::checkForFish() {

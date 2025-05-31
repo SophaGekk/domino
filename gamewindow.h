@@ -70,6 +70,10 @@ public:
     void handleNoValidMoves();
     void clearHighlightItems();
 
+    void setReserveVisible(bool visible) {
+        showReserve = visible;
+    }
+
 signals:
     void returnToMainMenu();
 
@@ -102,7 +106,6 @@ private:
     int currentPlayersCount;
     int currentStartTiles;
 
-    QVector<DominoTileItem*> handItems;
     QVector<DominoLabel*> topHandLabels;  // Элементы верхнего игрока (задняя сторона)
     QVector<DominoLabel*> bottomHandLabels; // Элементы нижнего игрока (фронтальная сторона)
     QVector<DominoLabel*> leftHandLabels;    // Левый игрок (вертикальный)
@@ -132,7 +135,7 @@ private:
     QLineEdit* messageInput;
     QPushButton* sendButton;
 
-    bool showReserve;
+    bool showReserve = true;
     const QStringList &playerNames;
     QList<QGraphicsItem*> highlightItems; // Храним элементы подсветки
 
