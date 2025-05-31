@@ -18,19 +18,24 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Qt
-      id: setup-qt
       uses: jurplel/install-qt-action@v2
       with:
         version: '6.4.0'
         modules: qtbase qttools qtdeclarative qt5compat
         cached: true
 
-    - name: Build project
+    - name: Add Qt to PATH
       shell: cmd
       run: |
-        "%{{ steps.setup-qt.outputs.qt-dir }}\bin\qmake.exe" -version
-        "%{{ steps.setup-qt.outputs.qt-dir }}\bin\qmake.exe" -makefile
-        "%{{ steps.setup-qt.outputs.qt-dir }}\bin\mingw32-make.exe" -j4 release
+        echo "Adding Qt to PATH"
+        echo "%QT_PATH%\bin" >> %GITHUB_PATH%
+
+    - name: Build project with qmake and MinGW
+      shell: cmd
+      run: |
+        qmake -version
+        qmake -makefile
+        mingw32-make -j4 release
         
     - name: Prepare artifacts
       shell: cmd
@@ -38,7 +43,7 @@ jobs:
         mkdir domino_release
         copy release\domino.exe domino_release
         
-        "%{{ steps.setup-qt.outputs.qt-dir }}\bin\windeployqt.exe" --release --no-compiler-runtime domino_release\domino.exe
+        windeployqt --release --no-compiler-runtime domino_release\domino.exe
         
         if exist data xcopy /s /e /y data domino_release\data
         if exist README.md copy README.md domino_release
