@@ -222,16 +222,24 @@ int DominoGame::determineWinner() const {
 
 int DominoGame::determineFishWinner() const {
     int minScore = INT_MAX;
-    int winnerIndex = 0;
+    int winnerIndex = -1;
+    bool hasTie = false;
 
     for (int i = 0; i < players.size(); ++i) {
         int score = players[i]->getScore();
         if (score < minScore) {
             minScore = score;
             winnerIndex = i;
+            hasTie = false;  // Новый минимум - сбрасываем флаг ничьи
+        } else if (score == minScore) {
+            hasTie = true;   // Обнаружен дубликат минимального счета
         }
     }
 
+    // Если есть ничья или игроков нет, возвращаем -1
+    if (hasTie || winnerIndex == -1) {
+        return -1;
+    }
     return winnerIndex;
 }
 

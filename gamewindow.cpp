@@ -124,8 +124,12 @@ void GameWindow::updateGameState() {
         // Показываем сообщение только один раз
         if (!gameOverShown) {
             gameOverShown = true;
-            QMessageBox::information(this, "Игра окончена",
-                                     "Победитель: " + winner->getName());
+            if (winnerIndex == -1) {
+                QMessageBox::information(this, "Игра окончена", "Ничья");
+            } else {
+                QMessageBox::information(this, "Игра окончена", "Победитель: " + winner->getName());
+            }
+
         }
         return;
     }
