@@ -24,7 +24,7 @@ MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::Main
     audioOutput = new QAudioOutput(this);
     backgroundMusic = new QMediaPlayer(this);
     backgroundMusic->setAudioOutput(audioOutput);
-    backgroundMusic->setSource(QUrl::fromLocalFile("C:/Users/Sopha/Downloads/tech_prog/domino/audio/1tema.mp3"));
+    backgroundMusic->setSource(QUrl::fromLocalFile("audio/1tema.mp3"));
     audioOutput->setVolume(0.1);
 
     // Зацикливание музыки
@@ -148,7 +148,7 @@ void MainWindow::onStatsClicked() {
         });
     }
     this->hide();
-    statsWindow->loadStatistics("C:/Users/Sopha/Downloads/tech_prog/domino/stats.json"); // Путь к JSON-файлу
+    statsWindow->loadStatistics("/stats.json"); // Путь к JSON-файлу
     statsWindow->show();
 
 }
