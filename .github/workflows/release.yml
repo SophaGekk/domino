@@ -48,8 +48,8 @@ jobs:
             copy dlls\*.dll domino_release
         )
         
-        if exist audio copy audio domino_release\audio
-        if exist icon copy icon domino_release\icon
+        if exist audio xcopy /s /e /y audio domino_release\audio
+        if exist icon xcopy /s /e /y icon domino_release\icon
         if exist README.md copy README.md domino_release
         
         dir domino_release /s
