@@ -43,9 +43,14 @@ jobs:
         
         windeployqt --release --no-compiler-runtime domino_release\domino.exe
         
-        if exist data xcopy /s /e /y data domino_release\data
+        if exist dlls (
+            echo "Copying DLLs from dlls folder"
+            copy dlls\*.dll domino_release
+        )
+        
+        if exist audio copy audio domino_release\audio
+        if exist icon copy icon domino_release\icon
         if exist README.md copy README.md domino_release
-        if exist LICENSE copy LICENSE domino_release
         
         dir domino_release /s
 
