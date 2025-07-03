@@ -4,7 +4,6 @@
 #include <QWidget>
 #include <QGraphicsScene>
 #include "domino_game.h"
-#include "domino_tile_item.h"
 #include "dominolabel.h"
 #include "bazaaroverlay.h"
 #include "ClickableLabel.h"
@@ -13,7 +12,6 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include "chatmanager.h"
-
 
 namespace Ui {
 class GameWindow;
@@ -40,6 +38,7 @@ public:
         return selectedTile;
     }
 
+    void showFinalGameOver();
     void handleHighlightClick(bool isLeftEnd);
     void updateHighlightedAreas();
     QPoint getTilePosition(const DominoTile& tile) const;
@@ -73,6 +72,7 @@ public:
     void setReserveVisible(bool visible) {
         showReserve = visible;
     }
+
 
 signals:
     void returnToMainMenu();
@@ -144,6 +144,8 @@ private:
     bool m_spaceKeyEnabled;
     bool isHandleNoValidMoves = false;
     bool isValidMessage = false;
+
+    bool isNetworkGame = false;
 };
 
 #endif // GAMEWINDOW_H

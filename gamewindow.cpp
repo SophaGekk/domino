@@ -13,10 +13,12 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QDir>
+#include <QStandardPaths>
 #include <QTimer>
 #include <QToolTip>
 #include "chatmanager.h"
-
+#include "final_game_over_dialog.h"
 
 GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const QStringList &playerNames, QWidget *parent)
     : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount), playerNames(playerNames) {
@@ -41,7 +43,8 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
     // Обновление интерфейса
     connect(game, &DominoGame::gameStarted, this, &GameWindow::updateGameState);
     connect(game, &DominoGame::playerMoved, this, &GameWindow::updateGameState);
-    connect(game, &DominoGame::gameEnded, this, &GameWindow::showGameOver);
+    connect(game, &DominoGame::RoundEnded, this, &GameWindow::showGameOver);
+    connect(game, &DominoGame::gameFinish, this, &GameWindow::showFinalGameOver);
 
     reserveButton = new QPushButton(this);
     reserveButton->setObjectName("reserveButton");
@@ -344,6 +347,7 @@ void GameWindow::processMove(DominoTile tile) {
             else {game->makeMove();}
         }
     }
+
 }
 
 void GameWindow::showPossibleMoves(const DominoTile& tile) {
@@ -834,7 +838,6 @@ void GameWindow::handleBazaarTileSelected(const DominoTile& tile) {
 void GameWindow::showGameOver() {
     if (isGameOverShown) return; // Защита от повторного вызова
     isGameOverShown = true;
-    game->calculateScores();
     int winnerIndex = game->determineWinner();
     // Затемнение фона
     m_darkOverlay = new QWidget(this);
@@ -843,13 +846,9 @@ void GameWindow::showGameOver() {
     m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_darkOverlay->show();
 
-    Player* winner = game->getPlayers()[winnerIndex];
-    // Запись статистики с обработкой ошибок
-    try {
+    if (winnerIndex != -1) {
+        Player* winner = game->getPlayers()[winnerIndex];
         winner->addWin();
-        writeGameStats();
-    } catch (const std::exception& e) {
-        qCritical() << "Ошибка записи статистики:" << e.what();
     }
 
     GameOverDialog* dialog = new GameOverDialog(game->getPlayers(), this);
@@ -859,13 +858,22 @@ void GameWindow::showGameOver() {
     dialog->move(geometry().center() - dialog->rect().center());
     dialog->show();
 
-    connect(dialog, &GameOverDialog::newRoundRequested, this, [this]() {
-        game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"), ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();  // Новый метод в DominoGame
-        updateGameState();
-        m_darkOverlay->deleteLater();
+    connect(dialog, &GameOverDialog::newRoundRequested, this, [this, dialog]() {
+        dialog->close();
+        game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
+        ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();
+        updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
     });
 
-    connect(dialog, &GameOverDialog::exitToMainMenu, this, &GameWindow::onHomeClicked);
+    connect(dialog, &GameOverDialog::exitToMainMenu, this, [this]() {
+        // При выходе в меню записываем статистику
+        try {
+            writeGameStats();
+        } catch (const std::exception& e) {
+            qCritical() << "Ошибка записи статистики:" << e.what();
+        }
+        onHomeClicked();
+    });
 }
 
 
@@ -925,7 +933,8 @@ void GameWindow::clearHighlights() {
 }
 
 void GameWindow::writeGameStats() {
-    QString filePath = "C:/Users/Sopha/Downloads/tech_prog/domino/stats.json";
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString filePath = appDir + "/stats.json";
     QFile file(filePath);
     QJsonArray statsArray;
 
@@ -1047,4 +1056,60 @@ void GameWindow::updateReserveLabel(bool showReserve) {
     if (!showReserve) {
         reserveButton->setText("Резерв ");
     }
+}
+void GameWindow::showFinalGameOver() {
+    if (isGameOverShown) return;
+    isGameOverShown = true;
+
+    // Определяем победителя
+    QVector<int> totalScores = game->getScores();
+    int winnerIndex = 0;
+    int maxScore = 0;
+    bool isDraw = false;
+
+    for (int i = 0; i < totalScores.size(); ++i) {
+        if (totalScores[i] > maxScore) {
+            maxScore = totalScores[i];
+            winnerIndex = i;
+            isDraw = false;
+        } else if (totalScores[i] == maxScore) {
+            isDraw = true;
+        }
+    }
+
+    // Затемнение фона
+    m_darkOverlay = new QWidget(this);
+    m_darkOverlay->setStyleSheet("background: rgba(0, 0, 0, 150);");
+    m_darkOverlay->setGeometry(rect());
+    m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_darkOverlay->show();
+
+    Player* winner = game->getPlayers()[winnerIndex];
+
+    // Запись статистики
+    try {
+        if (!isDraw) {
+            winner->addWin();
+        }
+        writeGameStats();
+    } catch (const std::exception& e) {
+        qCritical() << "Ошибка записи статистики:" << e.what();
+    }
+
+    // Создаем финальное окно победы
+    FinalGameOverDialog* dialog = new FinalGameOverDialog(
+        game->getPlayers(),
+        game->getScores(),
+        game->getMaxScore(),
+        isDraw,
+        this
+        );
+
+    dialog->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->adjustSize();
+    dialog->move(geometry().center() - dialog->rect().center());
+    dialog->show();
+
+    connect(dialog, &FinalGameOverDialog::exitToMainMenu, this, &GameWindow::onHomeClicked);
 }

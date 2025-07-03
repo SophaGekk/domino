@@ -29,7 +29,6 @@ public:
     void applyNonCriticalSettings();
     bool checkCurrentGame(SettingType settingType);
 
-
 private slots:
     void saveCurrentSettings();
     void onPlayClicked();
@@ -52,5 +51,6 @@ private:
     int currentPlayers;
     int currentBots;
     QStringList names;
+
 };
 #endif // MAINWINDOW_H

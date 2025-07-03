@@ -18,6 +18,7 @@ SOURCES += \
     bot_player.cpp \
     chatmanager.cpp \
     clickable_rect.cpp \
+    final_game_over_dialog.cpp \
     gameoverdialog.cpp \
     gamewindow.cpp \
     humanplayer.cpp \
@@ -38,6 +39,7 @@ HEADERS += \
     clickable_rect.h \
     clickablelabel.h \
     dominolabel.h \
+    final_game_over_dialog.h \
     gameoverdialog.h \
     gamewindow.h \
     humanplayer.h \
@@ -62,10 +64,16 @@ FORMS += \
     settingswindow.ui
 
 RESOURCES += \
-    icon.qrc \
-    stats.json
+    icon.qrc
+    # stats.json
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+# Копирование ресурсов при установке
+target.path = $$PREFIX/bin
+data.files = icon/*
+data.path = $$PREFIX/share/domino
+INSTALLS += target data

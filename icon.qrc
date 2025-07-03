@@ -8,6 +8,7 @@
         <file>icon/home.png</file>
         <file>icon/stat.png</file>
         <file>icon/domino.png</file>
+	<file>icon/main_domino.png</file>
 	<file>audio/1tema.mp3</file>
 	<file>stats.json</file>
     </qresource>

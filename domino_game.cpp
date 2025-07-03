@@ -130,7 +130,6 @@ void DominoGame::updateNextPlayerIndex() {
 // Проверка окончания игры
 bool DominoGame::isGameOver() const {
     if (gameEnd) return true;
-
     // Проверяем, есть ли игрок без костяшек
     for (Player* player : players) {
         qDebug() << "Player" << player->getName() << "hand size:" << player->getHandSize();
@@ -179,25 +178,47 @@ void DominoGame::startNewGame(const QStringList &playerNames) {
     emit gameStarted();
 }
 
-
-
 void DominoGame::checkForFish() {
     if (gameEnd || !checkForBlockedGame()) return;
 
     gameEnd = true;
     calculateScores();
     int winnerIndex = determineWinner();
-    emit gameEnded(winnerIndex, getScores());
+    emit RoundEnded(winnerIndex, getScores());
 }
 
 void DominoGame::calculateScores() {
+    bool scoreLimitReached = false;
+
+    // Определяем победителя и тип окончания игры
+    int winnerIndex = determineWinner();
+    int winnerScore = 0;
+
+    // Рассчитываем очки для всех игроков
+    int totalScore = 0;
     for (Player* player : players) {
         int score = 0;
         for (const DominoTile& tile : player->getHand()) {
             score += tile.getTotalValue();
         }
-        player->setScore(score);
+        if(player == players[winnerIndex]){winnerScore = score;}
+        totalScore += score;
     }
+
+    // Начисляем очки победителю по правилам
+    if (winnerIndex != -1) {
+        Player* winner = players[winnerIndex];
+        int prize = totalScore - winnerScore;
+        winner->setScore(totalScore - winnerScore);
+    }
+
+    // Проверяем достижение лимита очков
+    for (Player* player : players) {
+        if (player->getScore() >= maxScore) {
+            scoreLimitReached = true;
+        }
+    }
+    gameFinished = scoreLimitReached;
 }
 
 QVector<int> DominoGame::getScores() const {
@@ -292,14 +313,14 @@ Player* DominoGame::getCurrentPlayer() {
     if (currentPlayerIndex >= 0 && currentPlayerIndex < players.size()) {
         return players[currentPlayerIndex];
     }
-    return nullptr; // Обработка ошибки при необходимости
+    return nullptr; // Обработка ошибки
 }
 
 Player* DominoGame::getNextPlayer() {
     if (NextPlayerIndex >= 0 && NextPlayerIndex  < players.size()) {
         return players[NextPlayerIndex];
     }
-    return nullptr; // Обработка ошибки при необходимости
+    return nullptr; // Обработка ошибки
 }
 
 
@@ -368,8 +389,10 @@ Player* DominoGame::getFourthPlayer() {
 void DominoGame::startNewRound(const QStringList& playerNames) {
     // Сохраняем статистику игроков
     QVector<int> scores;
+    QVector<int> wins;
     for (Player* player : players) {
         scores.append(player->getScore());
+        wins.append(player->getWins());
     }
 
     // Полная переинициализация игры
@@ -379,6 +402,9 @@ void DominoGame::startNewRound(const QStringList& playerNames) {
     for (int i = 0; i < players.size(); ++i) {
         if (i < scores.size()) {
             players[i]->setScore(scores[i]);
+        }
+        if (i < wins.size()) {
+            players[i]->setWins(wins[i]); // Восстанавливаем победы
         }
     }
 
@@ -403,4 +429,71 @@ bool DominoGame::currentPlayerCanMove() const {
         return currentPlayer->hasValidMove(leftEnd, rightEnd); // leftEnd/rightEnd - края поля
     }
     return true;
+}
+
+QByteArray DominoGame::serializeGameState() const {
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+
+    stream << gameId;
+    stream << currentPlayerIndex;
+    stream << currentRound;
+
+    // Сериализация доски
+    stream << board.size();
+    for (const DominoTile& tile : board) {
+        stream << tile.getLeftValue() << tile.getRightValue();
+    }
+
+    // Сериализация игроков
+    stream << players.size();
+    for (const Player* player : players) {
+        stream << player->getName();
+        stream << player->getHand().size();
+        for (const DominoTile& tile : player->getHand()) {
+            stream << tile.getLeftValue() << tile.getRightValue();
+        }
+    }
+
+    return data;
+}
+
+void DominoGame::deserializeGameState(const QByteArray& data) {
+    QDataStream stream(data);
+
+    stream >> gameId;
+    stream >> currentPlayerIndex;
+    stream >> currentRound;
+
+    // Десериализация доски
+    int boardSize;
+    stream >> boardSize;
+    board.clear();
+    for (int i = 0; i < boardSize; i++) {
+        int left, right;
+        stream >> left >> right;
+        board.append(DominoTile(left, right));
+    }
+
+    // Десериализация игроков
+    int playerCount;
+    stream >> playerCount;
+    players.clear();
+    for (int i = 0; i < playerCount; i++) {
+        QString name;
+        stream >> name;
+
+        Player* player = new HumanPlayer(name); // Или бот в зависимости от типа
+        int handSize;
+        stream >> handSize;
+
+        QVector<DominoTile> hand;
+        for (int j = 0; j < handSize; j++) {
+            int left, right;
+            stream >> left >> right;
+            hand.append(DominoTile(left, right));
+        }
+        player->setHand(hand);
+        players.append(player);
+    }
 }

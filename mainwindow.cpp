@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "domino_game.h"
-#include "domino_tile_item.h"
 #include "player.h"
 #include <QMessageBox>
 #include <QTime>
@@ -11,6 +10,8 @@
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include "nicknamedialog.h"
+#include <QDir>
+#include <QStandardPaths>
 
 MainWindow ::MainWindow (QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     // Настройка главного окна
@@ -148,11 +149,12 @@ void MainWindow::onStatsClicked() {
         });
     }
     this->hide();
-    statsWindow->loadStatistics("/stats.json"); // Путь к JSON-файлу
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString filePath = appDir + "/stats.json";
+    statsWindow->loadStatistics(filePath); // Путь к JSON-файлу
     statsWindow->show();
 
 }
-
 void MainWindow::applySettings(int players, int bots, bool showReserve, bool soundEnabled, bool highlight) {
     // Сохраняем настройки, которые не требуют перезапуска
     QSettings settings("MyCompany", "DominoGame");

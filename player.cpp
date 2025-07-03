@@ -8,7 +8,6 @@ int Player::getScore() const {
     return score;
 }
 
-// Реализация setScore()
 void Player::setScore(int newScore) {
     score += newScore;
 }

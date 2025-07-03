@@ -51,6 +51,7 @@ public:
     bool hasValidMove(int left, int right) const;
     // Метод для увеличения побед
     void addWin() { wins++; }
+    void setWins(int newWins) { wins = newWins; }
 protected:
     QString name;
     QVector<DominoTile> hand;
