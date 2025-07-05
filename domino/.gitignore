@@ -1,0 +1,5 @@
+/build/
+/debug/
+/.qmake.cache
+/.qmake.stash
+Makefile*

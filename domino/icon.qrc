@@ -1,0 +1,14 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icon/girl1.png</file>
+        <file>icon/man1.png</file>
+        <file>icon/off.png</file>
+        <file>icon/on.png</file>
+        <file>icon/setting.png</file>
+        <file>icon/home.png</file>
+        <file>icon/stat.png</file>
+        <file>icon/domino.png</file>
+	<file>icon/main_domino.png</file>
+	<file>audio/1tema.mp3</file>
+    </qresource>
+</RCC>
