@@ -17,6 +17,7 @@ public:
     void setSessionCode(const QString& code);
     void addPlayer(const QString& playerName);
     void setPlayersCount(int current, int required);
+    void updatePlayersList(const QStringList& players);
 
 signals:
     void canceled();

@@ -20,7 +20,7 @@
 #include "chatmanager.h"
 #include "final_game_over_dialog.h"
 
-GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const QStringList &playerNames, QWidget *parent)
+GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const QStringList &playerNames, DominoGame* existingGame, QWidget *parent)
     : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount), playerNames(playerNames) {
     ui->setupUi(this);
     m_spaceKeyEnabled = false;
@@ -30,17 +30,26 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
     setWindowFlags(windowFlags() & ~Qt::WindowMaximizeButtonHint & ~Qt::WindowFullscreenButtonHint);
     setFixedSize(size()); // Фиксирует размер после инициализации интерфейса
     scene = new QGraphicsScene(this);
-    ui->dominoArea->setScene(scene); // dominoArea - QGraphicsView из UI
+    ui->dominoArea->setScene(scene);
+
     // Инициализация игры
-    game = new DominoGame(playersCount, BotCount, playerNames, this);
+    if (existingGame) {
+        isNetworkGame = true;
+        game = existingGame;
+        game->setParent(this); // Устанавливаем родителя для управления памятью
+    } else {
+        isNetworkGame = false;
+        // Режим локальной игры: создаем новую игру
+        game = new DominoGame(playersCount, BotCount, playerNames, this);
+    }
+
     m_turnOverlay = new QWidget(this);
-    connect(game, &DominoGame::playerChanged, this, &GameWindow::onPlayerChanged);
-    game->startNewGame(playerNames);
 
     // Настройка кнопки "Домой"
     connect(ui->homeButton, &QPushButton::clicked, this, &GameWindow::onHomeClicked);
 
     // Обновление интерфейса
+    connect(game, &DominoGame::playerChanged, this, &GameWindow::onPlayerChanged);
     connect(game, &DominoGame::gameStarted, this, &GameWindow::updateGameState);
     connect(game, &DominoGame::playerMoved, this, &GameWindow::updateGameState);
     connect(game, &DominoGame::RoundEnded, this, &GameWindow::showGameOver);
@@ -51,8 +60,6 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
     ui->labelReserveLayout->addWidget(reserveButton); // Добавьте кнопку в layout
     connect(reserveButton, &QPushButton::clicked, this, &GameWindow::onReserveClicked);
 
-
-
     ui->scrollBottomHand->setStyleSheet("QScrollBar:horizontal { height: 12px; }");
     ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }");
     ui->dominoArea->setAlignment(Qt::AlignCenter); // Центрирование содержимого
@@ -60,7 +67,6 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
 
     m_turnOverlay->setStyleSheet("background: rgba(0, 0, 0, 320);");
     m_turnOverlay->hide();
-
     m_turnLabel = new QLabel(m_turnOverlay);
     m_turnLabel->setAlignment(Qt::AlignCenter);
     m_turnLabel->setStyleSheet("font-size: 32px; color: white;");
@@ -92,16 +98,9 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
 
     ui->rightPanelLayout->addLayout(chatLayout);
 
-    chatHistoryWidget->setStyleSheet(
-        "QTextEdit { background: #f0f0f0; border-radius: 5px; padding: 5px; }"
-        );
-    messageInput->setStyleSheet(
-        "QLineEdit { border: 1px solid #ccc; border-radius: 3px; padding: 5px; }"
-        );
-    sendButton->setStyleSheet(
-        "QPushButton { background: #4CAF50; color: white; border: none; padding: 8px; border-radius: 3px; }"
-        "QPushButton:hover { background: #45a049; }"
-        );
+    chatHistoryWidget->setStyleSheet("QTextEdit { background: #f0f0f0; border-radius: 5px; padding: 5px; }");
+    messageInput->setStyleSheet("QLineEdit { border: 1px solid #ccc; border-radius: 3px; padding: 5px; }");
+    sendButton->setStyleSheet("QPushButton { background: #4CAF50; color: white; border: none; padding: 8px; border-radius: 3px; }" "QPushButton:hover { background: #45a049; }");
 
     // Подключение сигналов
     connect(sendButton, &QPushButton::clicked, this, &GameWindow::sendChatMessage);
@@ -566,40 +565,12 @@ void GameWindow::handleHighlightClick(bool isLeftEnd) {
 
 void GameWindow::updateHandDisplay() {
     if (isNetworkGame) {
-        // Только для клиента: показываем только свою руку
-        Player* clientPlayer = game->getPlayers()[0]; // Предполагаем, что клиент - первый игрок
-        const auto& hand = clientPlayer->getHand();
+        determinePlayerPositions();
 
-        // Обновляем только нижнюю руку (клиента)
-        while (bottomHandLabels.size() > hand.size()) {
-            delete bottomHandLabels.takeLast();
+        for (int i = 0; i < game->getPlayers().size(); ++i) {
+            updateHandForPosition(i, playerPositions[i]);
         }
-        for (int i = bottomHandLabels.size(); i < hand.size(); ++i) {
-            DominoLabel* label = new DominoLabel(this);
-            label->setFixedSize(40, 80);
-            connect(label, &DominoLabel::clicked, this, [this, label]() {
-                handleDominoClick(label);
-            });
-            ui->horizontalLayoutBottomHand->addWidget(label);
-            bottomHandLabels.append(label);
-        }
-        for (int i = 0; i < hand.size(); ++i) {
-            DominoTile tile = hand[i];
-            bottomHandLabels[i]->setDots(tile.getLeftValue(), tile.getRightValue(), true, true);
-            bottomHandLabels[i]->show();
-        }
-
-        // Скрываем руки других игроков
-        for (auto label : topHandLabels) label->hide();
-        for (auto label : rightHandLabels) label->hide();
-        for (auto label : leftHandLabels) label->hide();
     } else {
-        const auto& hand = game->getCurrentPlayer()->getHand();
-        // Удалить старые элементы, если их больше, чем нужно
-        while (bottomHandLabels.size() > hand.size()) {
-            DominoLabel* label = bottomHandLabels.takeLast();
-            delete label;
-        }
 
         if (game->getCurrentPlayer()->isBot()) {
             if(game->getPlayers().size() == 2 || (game->getPlayers().size() == 3 && BotCount == 1)|| (game->getPlayers().size() == 3 && BotCount == 2 && !game->getNextPlayer()->isBot()) || (game->getPlayers().size() == 4 && ((BotCount == 3 || BotCount == 2) && game->getNextPlayer()->isBot() && !game->getThirdPlayer()->isBot())))
@@ -678,6 +649,12 @@ void GameWindow::updateHandDisplay() {
             }
 
         } else {
+            const auto& hand = game->getCurrentPlayer()->getHand();
+            // Удалить старые элементы, если их больше, чем нужно
+            while (bottomHandLabels.size() > hand.size()) {
+                DominoLabel* label = bottomHandLabels.takeLast();
+                delete label;
+            }
             // Добавить новые элементы, если рука увеличилась
             for (int i = bottomHandLabels.size(); i < hand.size(); ++i) {
                 DominoLabel* label = new DominoLabel(this);
@@ -825,7 +802,7 @@ void GameWindow::updateHighlightedAreas() {
 }
 
 QPoint GameWindow::getTilePosition(const DominoTile& tile) const {
-    // Пример: поиск позиции по данным домино
+    // поиск позиции по данным домино
     // for (auto item : scene->items()) {
     //     DominoTile* tileItem = dynamic_cast<DominoTile*>(item);
     //     if (tileItem && tileItem->getTile() == tile) {
@@ -1051,8 +1028,6 @@ void GameWindow::highlightValidTiles() {
         handleNoValidMoves();
     }
     QVector<int> ends = game->getBoardEnds();
-    const QVector<DominoTile>& hand = game->getCurrentPlayer()->getHand();
-
     for (DominoLabel* label : bottomHandLabels) {
         DominoTile tile = getTileFromLabel(label);
         bool isValid = false;
@@ -1163,8 +1138,13 @@ void GameWindow::updateFromJson(const QJsonObject& state)
     }
 
     // Обновление базара
-    int bazaarCount = state["bazaar_count"].toInt();
-  //  game->getBazaar()->setRemainingTilesCount(bazaarCount);
+    QJsonArray bazaarArray = state["bazaar_tiles"].toArray();
+    QVector<DominoTile> bazaarTiles;
+    for (const QJsonValue& tileValue : bazaarArray) {
+        QJsonObject tileObj = tileValue.toObject();
+        bazaarTiles.append(DominoTile(tileObj["left"].toInt(), tileObj["right"].toInt()));
+    }
+    game->getBazaar()->setTiles(bazaarTiles);
 
     // Обновление текущего игрока
     QString currentPlayer = state["current_player"].toString();
@@ -1182,6 +1162,243 @@ void GameWindow::updateFromJson(const QJsonObject& state)
 }
 void GameWindow::setClient(Client* server) {
     сlient = server;
-    isNetworkGame = (server != nullptr); // Автоматически включаем сетевой режим
     ui->pushButton_skip->setVisible(!isNetworkGame);
+}
+
+void GameWindow::determinePlayerPositions()
+{
+    int totalPlayers = game->getPlayers().size();
+    playerPositions.resize(totalPlayers);
+
+    // Находим индекс клиента
+    for (int i = 0; i < totalPlayers; ++i) {
+        if (game->getPlayers()[i]->getName() == clientPlayerName) {
+            clientPlayerIndex = i;
+            break;
+        }
+    }
+
+    // Распределяем позиции (0=bottom, 1=right, 2=top, 3=left)
+    playerPositions[clientPlayerIndex] = 0; // Клиент всегда снизу
+
+    for (int i = 1; i < totalPlayers; ++i) {
+        int relativePos = (clientPlayerIndex + i) % totalPlayers;
+        playerPositions[relativePos] = i; // Остальные по порядку
+    }
+}
+
+void GameWindow::updateHandForPosition(int playerIndex, int screenPosition)
+{
+    Player* player = game->getPlayers()[playerIndex];
+    const auto& hand = player->getHand();
+    bool isClient = (playerIndex == clientPlayerIndex);
+
+    QVector<DominoLabel*>* targetLabels = nullptr;
+    QLayout* targetLayout = nullptr;
+    QSize size;
+    bool horizontal = true;
+
+    switch (screenPosition) {
+    case 0: // Bottom (клиент)
+        targetLabels = &bottomHandLabels;
+        targetLayout = ui->horizontalLayoutBottomHand;
+        size = QSize(40, 80);
+        break;
+    case 1: // Right
+        targetLabels = &rightHandLabels;
+        targetLayout = ui->verticalLayoutRightHand;
+        size = QSize(30, 50);
+        horizontal = false;
+        break;
+    case 2: // Top
+        targetLabels = &topHandLabels;
+        targetLayout = ui->horizontalLayoutTopHand;
+        size = QSize(40, 80);
+        break;
+    case 3: // Left
+        targetLabels = &leftHandLabels;
+        targetLayout = ui->verticalLayoutLeftHand;
+        size = QSize(30, 50);
+        horizontal = false;
+        break;
+    }
+
+    // Удалить лишние элементы
+    while (targetLabels->size() > hand.size()) {
+        DominoLabel* label = targetLabels->takeLast();
+        delete label;
+    }
+
+    // Добавить новые элементы
+    for (int i = targetLabels->size(); i < hand.size(); ++i) {
+        DominoLabel* label = new DominoLabel(this);
+        label->setFixedSize(size);
+        label->setStyleSheet("background: white; border: 1px solid black;");
+
+        if (isClient) {
+            connect(label, &DominoLabel::clicked, this, [this, label]() {
+                handleDominoClick(label);
+            });
+        }
+
+        targetLayout->addWidget(label);
+        targetLabels->append(label);
+    }
+
+    // Обновить значения
+    for (int i = 0; i < hand.size(); ++i) {
+        DominoTile tile = hand[i];
+        if (isClient) {
+            targetLabels->at(i)->setDots(tile.getLeftValue(), tile.getRightValue(), true, true);
+        } else {
+            targetLabels->at(i)->setLineVisible(false); // Тыльная сторона
+        }
+        targetLabels->at(i)->show();
+    }
+}
+
+void GameWindow::loadGameState(const QJsonObject& state)
+{
+    // 1. Десериализация состояния игры
+    if (existingGame) {
+        existingGame->deserializeFromJson(state);
+    } else {
+        qWarning() << "No game instance available for deserialization";
+        return;
+    }
+
+    // 2. Обновление интерфейса
+    // a) Доска
+    QJsonArray boardArray = state["board"].toArray();
+    // Очистка текущей доски
+    QGraphicsScene* scene = ui->dominoArea->scene();
+    if (!scene) {
+        scene = new QGraphicsScene(this);
+        ui->dominoArea->setScene(scene);
+    } else {
+        scene->clear();
+    }
+
+    const QVector<DominoTile>& board = existingGame->getBoard();
+
+    // Рассчитываем начальную позицию (центр экрана)
+    int currentX = ui->dominoArea->width() / 2 - 30;
+    int centerY = ui->dominoArea->height() / 2;
+    int yForDouble = centerY - 40;    // Для дублей выше центра
+    int yForNonDouble = centerY + 10; // Для обычных костяшек ниже центра
+
+    // Создаем графические элементы для каждой костяшки
+    for (const DominoTile& tile : board) {
+        bool isDouble = (tile.getLeftValue() == tile.getRightValue());
+        int width = isDouble ? 40 : 80;
+        int height = isDouble ? 80 : 40;
+
+        DominoLabel* label = new DominoLabel();
+        label->setDots(tile.getLeftValue(), tile.getRightValue(), isDouble, true);
+        label->setFixedSize(width, height);
+
+        QGraphicsProxyWidget* proxy = scene->addWidget(label);
+        proxy->setPos(currentX, isDouble ? yForDouble : yForNonDouble);
+
+        currentX += width + 5; // Перемещаем позицию для следующей костяшки
+    }
+
+    // b) Руки игроков
+    updateHandDisplay();
+
+    // c) Базар
+    QJsonArray bazaarArray = state["bazaar_tiles"].toArray();
+    // Очистка текущего базара
+    QLayoutItem* item1;
+    while ((item1 = ui->labelReserveLayout->takeAt(0))) {
+        delete item1->widget();
+        delete item1;
+    }
+
+    // Добавление костяшек в базар
+    for (const QJsonValue& tileValue : bazaarArray) {
+        QJsonObject tileObj = tileValue.toObject();
+
+        DominoLabel* tileLabel = new DominoLabel(this);
+        tileLabel->setFixedSize(30, 50);
+        tileLabel->setLineVisible(false); // Тыльная сторона
+        tileLabel->setStyleSheet("background: white; border: 1px solid black;");
+
+        ui->labelReserveLayout->addWidget(tileLabel);
+    }
+
+    // Счет игроков
+    QJsonArray scoresArray = state["player_scores"].toArray();
+    for (int i = 0; i < scoresArray.size(); ++i) {
+        int score = scoresArray[i].toInt();
+
+        switch (playerPositions[i]) {
+        case 0: // Bottom
+            ui->labelScoreBottom->setText(QString::number(score));
+            break;
+        case 1: // Right
+            ui->labelScoreRight->setText(QString::number(score));
+            break;
+        case 2: // Top
+            ui->labelScoreTop->setText(QString::number(score));
+            break;
+        case 3: // Left
+            ui->labelScoreLeft->setText(QString::number(score));
+            break;
+        }
+    }
+
+    // Текущий игрок
+    QString currentPlayer = state["current_player"].toString();
+    // Сброс подсветки для всех игроков
+    ui->labelNameBottom->setStyleSheet("");
+    ui->labelNameRight->setStyleSheet("");
+    ui->labelNameTop->setStyleSheet("");
+    ui->labelNameLeft->setStyleSheet("");
+
+    // Находим игрока и подсвечиваем его имя
+    for (int i = 0; i < existingGame->getPlayers().size(); ++i) {
+        if (existingGame->getPlayers()[i]->getName() == currentPlayer) {
+            switch (playerPositions[i]) {
+            case 0: // Bottom
+                ui->labelNameBottom->setStyleSheet("background-color: black; font-weight: bold;");
+                break;
+            case 1: // Right
+                ui->labelNameRight->setStyleSheet("background-color: black; font-weight: bold;");
+                break;
+            case 2: // Top
+                ui->labelNameTop->setStyleSheet("background-color: black; font-weight: bold;");
+                break;
+            case 3: // Left
+                ui->labelNameLeft->setStyleSheet("background-color: black; font-weight: bold;");
+                break;
+            }
+            break;
+        }
+    }
+
+    // Обновление информации об игроках
+    QJsonArray playersArray = state["players"].toArray();
+    // Обновление имен игроков и их позиций
+    for (int i = 0; i < playersArray.size(); ++i) {
+        QString playerName = playersArray[i].toObject()["name"].toString();
+
+        switch (playerPositions[i]) {
+        case 0: // Bottom
+            ui->labelNameBottom->setText(playerName);
+            break;
+        case 1: // Right
+            ui->labelNameRight->setText(playerName);
+            break;
+        case 2: // Top
+            ui->labelNameTop->setText(playerName);
+            break;
+        case 3: // Left
+            ui->labelNameLeft->setText(playerName);
+            break;
+        }
+    }
+
+    // 3. Перерисовка интерфейса
+    repaint();
 }

@@ -110,7 +110,7 @@
      <string/>
     </property>
     <property name="pixmap">
-     <pixmap>:/icon/domino.png</pixmap>
+     <pixmap resource="icon.qrc">:/icon/domino.png</pixmap>
     </property>
     <property name="scaledContents">
      <bool>true</bool>
@@ -154,7 +154,7 @@
      <string>Настройки</string>
     </property>
     <property name="icon">
-     <iconset>
+     <iconset resource="icon.qrc">
       <normaloff>:/icon/setting.png</normaloff>:/icon/setting.png</iconset>
     </property>
     <property name="iconSize">
@@ -204,7 +204,7 @@
      <string>Статистика</string>
     </property>
     <property name="icon">
-     <iconset>
+     <iconset resource="icon.qrc">
       <normaloff>:/icon/stat.png</normaloff>:/icon/stat.png</iconset>
     </property>
     <property name="iconSize">
@@ -219,15 +219,10 @@
    <zorder>label</zorder>
    <zorder>playButton</zorder>
    <zorder>rulesButton</zorder>
-   <zorder>horizontalSpacer</zorder>
-   <zorder>horizontalSpacer_2</zorder>
-   <zorder>horizontalSpacer_3</zorder>
-   <zorder>horizontalSpacer_4</zorder>
-   <zorder>horizontalSpacer_5</zorder>
-   <zorder>horizontalSpacer_6</zorder>
-   <zorder>horizontalSpacer_7</zorder>
   </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="icon.qrc"/>
+ </resources>
  <connections/>
 </ui>

@@ -27,24 +27,24 @@ public:
     void createSession(const QString& playerName, int playersCount);
     void joinSession(const QString& sessionCode, const QString& playerName);
     void disconnectFromHost();
+    QString getPlayerName() const { return m_playerName; }
 
 signals:
     void newChatMessage(const QString& sender, const QString& message);
-    void gameStateReceived(const QJsonObject& state);
-    void sessionCreated(const QString& sessionCode);
-    void joined(int currentPlayers, int requiredPlayers);
-    void playerJoined(const QString& playerName);
+    void sessionCreated(const QString& sessionCode, const QString& playerName, int players, int required);
+    void playerJoined(const QString& playerName, int currentPlayers, int requiredPlayers);
     void errorOccurred(const QString& message);
     void gameStarted(const QJsonObject& state);
+    void sessionUpdated(int players, int required);
 
 private slots:
     void onReadyRead();
 
 private:
     void processSessionCreated(const QJsonObject& json);
-    void processJoined(const QJsonObject& json);
     void processPlayerJoined(const QJsonObject& json);
     void processError(const QJsonObject& json);
+    void processMessage(const QString& str);
 
     QTcpSocket *socket;
     QByteArray Data;

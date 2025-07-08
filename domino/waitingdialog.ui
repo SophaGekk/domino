@@ -20,7 +20,7 @@
       <string>Ожидание игроков...</string>
      </property>
      <property name="alignment">
-      <set>Qt::AlignCenter</set>
+      <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -29,14 +29,14 @@
    </item>
    <item>
     <widget class="QLabel" name="lblCode">
+     <property name="visible">
+      <bool>true</bool>
+     </property>
      <property name="text">
       <string>Код сессии: </string>
      </property>
      <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-     <property name="visible">
-      <bool>false</bool>
+      <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
    </item>
@@ -57,7 +57,7 @@
      <item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+        <enum>Qt::Orientation::Horizontal</enum>
        </property>
        <property name="sizeHint" stdset="0">
         <size>

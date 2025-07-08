@@ -44,15 +44,15 @@ public:
         verticalLayout->setObjectName("verticalLayout");
         lblStatus = new QLabel(WaitingDialog);
         lblStatus->setObjectName("lblStatus");
-        lblStatus->setAlignment(Qt::AlignCenter);
+        lblStatus->setAlignment(Qt::AlignmentFlag::AlignCenter);
         lblStatus->setWordWrap(true);
 
         verticalLayout->addWidget(lblStatus);
 
         lblCode = new QLabel(WaitingDialog);
         lblCode->setObjectName("lblCode");
-        lblCode->setAlignment(Qt::AlignCenter);
-        lblCode->setVisible(false);
+        lblCode->setVisible(true);
+        lblCode->setAlignment(Qt::AlignmentFlag::AlignCenter);
 
         verticalLayout->addWidget(lblCode);
 

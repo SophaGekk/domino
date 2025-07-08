@@ -22,7 +22,7 @@ class GameWindow : public QWidget {
     Q_OBJECT
 
 public:
-    explicit GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, QWidget *parent = nullptr);
+    explicit GameWindow(int playersCount, int BotCount, bool showReserve, const QStringList &playerNames, DominoGame* existingGame, QWidget *parent = nullptr);
     void setHighlightEnabled(bool highlight);
     void setPlayersCount(int count);
     void setBotCount(int count);
@@ -74,6 +74,8 @@ public:
 
     void updateFromJson(const QJsonObject& state);
     void setClient(Client* server);
+    void setClientPlayerName(const QString& name) { clientPlayerName = name; }
+    void loadGameState(const QJsonObject& state);
 
 signals:
     void returnToMainMenu();
@@ -150,6 +152,14 @@ private:
 
     bool isNetworkGame = false;
     Client* сlient = nullptr;
+    DominoGame* existingGame = nullptr;
+
+    QString clientPlayerName;
+    int clientPlayerIndex = -1; // Позиция клиента среди игроков
+    QVector<int> playerPositions; // Распределение позиций на экране
+
+    void determinePlayerPositions();
+    void updateHandForPosition(int playerIndex, int screenPosition);
 };
 
 #endif // GAMEWINDOW_H

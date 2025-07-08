@@ -14,6 +14,7 @@ void Server::incomingConnection(qintptr socketDescriptor)
     QTcpSocket* socket = new QTcpSocket;
     socket->setSocketDescriptor(socketDescriptor);
     connect(socket, &QTcpSocket::readyRead, this, &Server::slotReadyRead);
+    connect(socket, &QTcpSocket::disconnected, this, &Server::clientDisconnected);
     connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
 
     Sockets.push_back(socket);
@@ -144,7 +145,9 @@ void Server::processCreateSession(QTcpSocket* socket, const QJsonObject& data)
     QString playerName = data["name"].toString();
     int playersCount = data["players"].toInt();
 
-    if (playersCount < 2 || playersCount > 4) {
+    qDebug() << "Processing create_session for" << playerName;
+    if (playersCount < 2 || playersCount > 4)
+    {
         QJsonObject error;
         error["type"] = "error";
         error["message"] = "Invalid players count (2-4)";
@@ -177,18 +180,26 @@ void Server::processCreateSession(QTcpSocket* socket, const QJsonObject& data)
     socketToSession[socket] = sessionCode;
 
     // Отправляем код сессии хосту
-    QJsonObject response;
-    response["type"] = "session_created";
-    response["code"] = sessionCode;
-    sendToClient(socket, response);
+    QJsonObject update;
+    update["type"] = "session_created";
+    update["code"] = sessionCode;
+    update["name"] = playerName;
+    update["players"] = static_cast<int>(newSession.clientNames.size());
+    update["required"] = newSession.requiredPlayers;
+
+    // Отправляем только хосту
+    sendToClient(socket, update);
 
     qDebug() << "Session created:" << sessionCode << "Host:" << playerName;
 }
 
 void Server::processJoinSession(QTcpSocket* socket, const QJsonObject& data)
 {
+
     QString sessionCode = data["code"].toString();
     QString playerName = data["name"].toString();
+
+    qDebug() << "Processing join_session for" << playerName << "code:" << sessionCode;
 
     if (!sessions.contains(sessionCode)) {
         QJsonObject error;
@@ -233,6 +244,7 @@ void Server::processJoinSession(QTcpSocket* socket, const QJsonObject& data)
     QJsonObject response;
     response["type"] = "joined";
     response["code"] = sessionCode;
+    response["name"] = playerName;
     response["players"] = static_cast<int>(session.clientNames.size());
     response["required"] = session.requiredPlayers;
     sendToClient(socket, response);
@@ -241,20 +253,32 @@ void Server::processJoinSession(QTcpSocket* socket, const QJsonObject& data)
     QJsonObject playerJoined;
     playerJoined["type"] = "player_joined";
     playerJoined["name"] = playerName;
+    playerJoined["players"] = static_cast<int>(session.clientNames.size());
+    playerJoined["required"] = session.requiredPlayers;
+
     for (QTcpSocket* client : session.clientNames.keys()) {
         sendToClient(client, playerJoined);
     }
+
+    QJsonObject update;
+    update["type"] = "session_update";
+    update["players"] = static_cast<int>(session.clientNames.size());
+    update["required"] = session.requiredPlayers;
+
+    for (QTcpSocket* client : session.clientNames.keys()) {
+        sendToClient(client, update);
+    }
+    qDebug() << "Player joined:" << playerName << "to session:" << sessionCode;
 
     // Проверяем, можно ли начинать игру
     if (session.clientNames.size() == session.requiredPlayers) {
         startGame(sessionCode);
     }
-
-    qDebug() << "Player joined:" << playerName << "to session:" << sessionCode;
 }
 
 void Server::startGame(const QString& sessionCode)
 {
+    qDebug() << "Game:" << sessionCode;
     GameSession& session = sessions[sessionCode];
 
     QStringList playerNames;
@@ -276,6 +300,7 @@ void Server::broadcastGameState(const QString& sessionCode)
     if (!sessions.contains(sessionCode)) return;
 
     GameSession& session = sessions[sessionCode];
+
     QJsonObject state;
     state["type"] = "game_state";
 
@@ -294,16 +319,44 @@ void Server::broadcastGameState(const QString& sessionCode)
 
     // Счет игроков
     QJsonArray scoresArray;
-    QVector<int> scores = session.game->getScores();
-    for (int score : scores) {
-        scoresArray.append(score);
+    for (Player* player : session.game->getPlayers()) {
+        scoresArray.append(player->getScore());
     }
-    state["scores"] = scoresArray;
+    state["player_scores"] = scoresArray;
 
-    // Количество костяшек в базаре
-    state["bazaar_count"] = session.game->getBazaar()->remainingTilesCount();
+    // Сериализация базара
+    QJsonArray bazaarArray;
+    for (const DominoTile& tile : session.game->getBazaar()->getTiles()) {
+        QJsonObject tileObj;
+        tileObj["left"] = tile.getLeftValue();
+        tileObj["right"] = tile.getRightValue();
+        bazaarArray.append(tileObj);
+    }
+    state["bazaar_tiles"] = bazaarArray;
 
-    // Отправляем всем клиентам в сессии
+    // Руки игроков
+    QJsonArray handsArray;
+    for (Player* player : session.game->getPlayers()) {
+        QJsonArray handArray;
+        for (const DominoTile& tile : player->getHand()) {
+            QJsonObject tileObj;
+            tileObj["left"] = tile.getLeftValue();
+            tileObj["right"] = tile.getRightValue();
+            handArray.append(tileObj);
+        }
+        handsArray.append(handArray);
+    }
+    state["player_hands"] = handsArray;
+
+    // Список игроков
+    QJsonArray playersArray;
+    for (Player* player : session.game->getPlayers()) {
+        QJsonObject playerObj;
+        playerObj["name"] = player->getName();
+        playersArray.append(playerObj);
+    }
+    state["players"] = playersArray;
+
     for (QTcpSocket* client : session.clientNames.keys()) {
         sendToClient(client, state);
     }
@@ -312,7 +365,7 @@ void Server::broadcastGameState(const QString& sessionCode)
 void Server::slotReadyRead()
 {
     QTcpSocket* socket = qobject_cast<QTcpSocket*>(sender());
-    if (!socket || !socketToSession.contains(socket)) return;
+    if (!socket) return;
 
     QDataStream in(socket);
     in.setVersion(QDataStream::Qt_6_2);
@@ -320,32 +373,55 @@ void Server::slotReadyRead()
     if (in.status() == QDataStream::Ok) {
         QString str;
         in >> str;
+        qDebug() << "Received message:" << str;
+
         QJsonDocument doc = QJsonDocument::fromJson(str.toUtf8());
+        if (doc.isNull()) {
+            qDebug() << "Invalid JSON received";
+            return;
+        }
+
         QJsonObject json = doc.object();
         QString type = json["type"].toString();
-        QString sessionCode = socketToSession[socket];
-
-        if (!sessions.contains(sessionCode)) return;
-
-        GameSession& session = sessions[sessionCode];
+        qDebug() << "Message type:" << type;
 
         if (type == "create_session") {
             processCreateSession(socket, json);
         }
-        else if (type == "join_session") {
+
+        if (type == "join_session") {
             processJoinSession(socket, json);
         }
-        else if (type == "move" && session.gameStarted) {
-            processMove(socket, json);
+
+        // Для остальных сообщений проверяем привязку к сессии
+        if (!socketToSession.contains(socket)) {
+            qDebug() << "Socket not in any session, ignoring message";
+            return;
         }
-        else if (type == "bazaar" && session.gameStarted) {
-            processBazaar(socket);
+
+        QString sessionCode = socketToSession[socket];
+
+        if (!sessions.contains(sessionCode)) {
+            qDebug() << "Session not found for socket";
+            return;
         }
-        else if (type == "skip" && session.gameStarted) {
-            processSkip(socket);
-        }
-        else if (type == "chat") {
-            processChat(socket, json);
+
+        GameSession& session = sessions[sessionCode];
+
+        // Обработка игровых действий (только после начала игры)
+        if (session.gameStarted) {
+            if (type == "move") {
+                processMove(socket, json);
+            }
+            else if (type == "bazaar") {
+                processBazaar(socket);
+            }
+            else if (type == "skip") {
+                processSkip(socket);
+            }
+            else if (type == "chat") {
+                processChat(socket, json);
+            }
         }
     }
 }

@@ -39,16 +39,16 @@ private slots:
     void onStatsClicked();
     void showSettingsWindow();
     void applySettings(int players, int bots, bool showReserve, bool soundEnabled, bool highlight);
-    void onSessionCreated(const QString& sessionCode);
-    void onPlayerJoined(const QString& playerName);
-    void onJoined(int currentPlayers, int requiredPlayers);
+    void onSessionCreated(const QString& sessionCode, const QString& playerName, int players, int required);
+    void onPlayerJoined(const QString& playerName, int currentPlayers, int requiredPlayers);
     void onGameStarted(const QJsonObject& state);
     void onNetworkError(const QString& message);
+    void onSessionUpdated(int players, int required);
 
 private:
     Ui::MainWindow *ui;
     GameWindow *gameWindow = nullptr;
-    Client *сlient = nullptr;
+    Client *client = nullptr;
     WaitingDialog *waitingDialog = nullptr;
     SettingsWindow *settingsWindow = nullptr;
     StatisticsWindow *statsWindow = nullptr;
@@ -67,5 +67,8 @@ private:
     void startHostGame(const QString& playerName, const QString& host, quint16 port, int playersCount);
     void joinSession(const QString& playerName, const QString& host, quint16 port, const QString& sessionCode);
     void showWaitingDialog();
+
+    DominoGame* existingGame = nullptr;
+    QString sessionCode;
 };
 #endif // MAINWINDOW_H

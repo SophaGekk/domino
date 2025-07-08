@@ -25,7 +25,7 @@
 
 int main(int argc, char *argv[]){
     QApplication a(argc, argv);
-    qApp->setWindowIcon(QIcon(":/icon/main_domino.png"));
+    qApp->setWindowIcon(QIcon("/icon/main_domino.png"));
     QString appDir = QCoreApplication::applicationDirPath();
     qDebug() << appDir;
 

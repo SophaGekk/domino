@@ -52,3 +52,7 @@ void Bazaar::removeTile(const DominoTile& tile) {
         tiles.erase(it);
     }
 }
+
+const QVector<DominoTile>& Bazaar::getTiles() const {
+    return tiles;
+}

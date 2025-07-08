@@ -32,7 +32,8 @@ public:
     int getHandSize() const;
     bool hasMatchingTile(int value) const;
     DominoTile getSelectedTile() const;
-
+    void clearHand(){hand.clear();}
+    void clearScore(){score = 0;}
     virtual std::pair<DominoTile, bool> playTurn(int leftEnd, int rightEnd) = 0;
     void drawTile(Bazaar* bazaar);
     void removeTile(const DominoTile& tile);

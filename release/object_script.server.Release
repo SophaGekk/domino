@@ -1,0 +1,10 @@
+release/main.o
+release/server.o
+release/domino_game.o
+release/bazaar.o
+release/player.o
+release/humanplayer.o
+release/bot_player.o
+release/domino_tile.o
+release/moc_server.o
+release/moc_domino_game.o

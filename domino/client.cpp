@@ -23,35 +23,70 @@ void Client::disconnectFromHost()
 
 void Client::connectToServer(const QString& host, quint16 port, const QString& playerName)
 {
+    qDebug() << "Connecting to server:" << host << ":" << port;
     m_playerName = playerName; // Сохраняем имя
     socket->connectToHost(host, port);
+
+    // Добавляем таймаут подключения
+    if (!socket->waitForConnected(5000)) {
+        qDebug() << "Connection failed:" << socket->errorString();
+        emit errorOccurred("Connection timeout");
+    }
 }
 
 void Client::onReadyRead()
 {
     QDataStream in(socket);
     in.setVersion(QDataStream::Qt_6_2);
-    if (in.status() != QDataStream::Ok) return;
 
-    QString str;
-    in >> str;
-    QJsonDocument doc = QJsonDocument::fromJson(str.toUtf8());
+    while (socket->bytesAvailable() > 0) {
+        if (in.status() != QDataStream::Ok) {
+            qDebug() << "Stream error";
+            break;
+        }
+        in.startTransaction();
+
+        QString str;
+        in >> str;
+
+        if (!in.commitTransaction()) {
+            // Не хватает данных, ждём больше
+            break;
+        }
+
+        qDebug() << "Received message:" << str;
+        processMessage(str);
+    }
+}
+
+void Client::processMessage(const QString& message) {
+    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
+    if (doc.isNull()) {
+        qDebug() << "Invalid JSON received";
+        return;
+    }
+
     QJsonObject json = doc.object();
-
     QString type = json["type"].toString();
-    if (type == "session_created") {
+    qDebug() << "Processing message type:" << type;
+
+    if (type == "session_update") {
+        int players = json["players"].toInt();
+        int required = json["required"].toInt();
+        qDebug() << "Session update:" << players << "/" << required;
+        emit sessionUpdated(players, required);
+    }
+    else if (type == "session_created") {
         processSessionCreated(json);
     }
-    else if (type == "joined") {
-        processJoined(json);
-    }
-    else if (type == "player_joined") {
+    else if (type == "joined" || type == "player_joined") {
         processPlayerJoined(json);
     }
     else if (type == "error") {
         processError(json);
     }
     else if (type == "game_state") {
+        qDebug() << "Game state received";
         emit gameStarted(json);
     }
     else if (type == "chat") {
@@ -60,7 +95,6 @@ void Client::onReadyRead()
         emit newChatMessage(sender, message);
     }
 }
-
 
 void Client::sendMove(const DominoTile& tile, bool isLeftEnd)
 {
@@ -151,20 +185,18 @@ void Client::joinSession(const QString& sessionCode, const QString& playerName)
 void Client::processSessionCreated(const QJsonObject& json)
 {
     QString code = json["code"].toString();
-    emit sessionCreated(code);
-}
-
-void Client::processJoined(const QJsonObject& json)
-{
+    QString name = json["name"].toString();
     int current = json["players"].toInt();
     int required = json["required"].toInt();
-    emit joined(current, required);
+    emit sessionCreated(code, name, current, required);
 }
 
 void Client::processPlayerJoined(const QJsonObject& json)
 {
     QString name = json["name"].toString();
-    emit playerJoined(name);
+    int current = json["players"].toInt();
+    int required = json["required"].toInt();
+    emit playerJoined(name, current, required);
 }
 
 void Client::processError(const QJsonObject& json)
@@ -172,3 +204,4 @@ void Client::processError(const QJsonObject& json)
     QString message = json["message"].toString();
     emit errorOccurred(message);
 }
+

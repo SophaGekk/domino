@@ -105,6 +105,7 @@ public:
 
     QByteArray serializeGameState() const;
     void deserializeGameState(const QByteArray& data);
+    void deserializeFromJson(const QJsonObject& state);
 
 signals:
     void gameStarted();
@@ -135,6 +136,7 @@ private:
     bool hasDouble;
     QString gameId; // Формат: "yyyy-MM-ddTHH:mm:ss"
     int maxScore = 100; // Лимит очков по умолчанию 300
+
     bool gameFinished = false; // Флаг завершения всей игры (огарничение на новые раунды)
 };
 

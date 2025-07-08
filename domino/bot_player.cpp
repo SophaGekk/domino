@@ -38,13 +38,11 @@ std::pair<DominoTile, bool> BotPlayer::playTurn(int leftEnd, int rightEnd) {
         for (const DominoTile& tile : hand) {
             // Вариант 1: размещение слева (левое значение tile совпадает с leftEnd)
             if (tile.getLeftValue() == leftEnd || tile.getRightValue() == leftEnd) {
-                bool needFlip = (tile.getRightValue() == leftEnd);
                 possibleMoves.append({tile, true, tile.getTotalValue()});
             }
 
             // Вариант 2: размещение справа (правое значение tile совпадает с rightEnd)
             if (tile.getLeftValue() == rightEnd || tile.getRightValue() == rightEnd) {
-                bool needFlip = (tile.getLeftValue() == rightEnd);
                 possibleMoves.append({tile, false, tile.getTotalValue()});
             }
         }

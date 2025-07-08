@@ -8,6 +8,9 @@ WaitingDialog::WaitingDialog(QWidget *parent) :
     ui->setupUi(this);
     setWindowTitle("Ожидание игроков");
     setFixedSize(400, 300);
+
+    ui->lblStatus->setText("Ожидание игроков: 0/?");
+    connect(ui->btnCancel, &QPushButton::clicked, this, [this]() {emit canceled(); reject();});
 }
 
 WaitingDialog::~WaitingDialog()
@@ -29,4 +32,12 @@ void WaitingDialog::addPlayer(const QString& playerName)
 void WaitingDialog::setPlayersCount(int current, int required)
 {
     ui->lblStatus->setText(QString("Ожидание игроков: %1/%2").arg(current).arg(required));
+}
+
+void WaitingDialog::updatePlayersList(const QStringList& players)
+{
+    ui->listPlayers->clear();
+    for (const QString& player : players) {
+        ui->listPlayers->addItem(player);
+    }
 }

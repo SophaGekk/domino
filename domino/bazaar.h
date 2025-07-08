@@ -31,6 +31,7 @@ public:
     int remainingTilesCount() const;
     const QVector<DominoTile>& getRemainingTiles() const;
     void setTiles(const QVector<DominoTile>& newTiles);
+    const QVector<DominoTile>& getTiles() const;
     void removeTile(const DominoTile& tile);
 
 private:

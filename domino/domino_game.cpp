@@ -9,13 +9,15 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
-
+#include <QJsonArray>
+#include <QJsonValue>
 
 // Конструктор
 DominoGame::DominoGame(int playerCount, int BotCount, const QStringList &playerNames, QObject* parent)
     : QObject(parent), playerCount(playerCount), BotCount(BotCount), currentPlayerIndex(0), gameEnd(false) {
     bazaar = new Bazaar();
     initializePlayers(playerNames);
+    startNewGame(playerNames);
 
 }
 
@@ -208,7 +210,6 @@ void DominoGame::calculateScores() {
     // Начисляем очки победителю по правилам
     if (winnerIndex != -1) {
         Player* winner = players[winnerIndex];
-        int prize = totalScore - winnerScore;
         winner->setScore(totalScore - winnerScore);
     }
 
@@ -496,4 +497,69 @@ void DominoGame::deserializeGameState(const QByteArray& data) {
         player->setHand(hand);
         players.append(player);
     }
+}
+
+void DominoGame::deserializeFromJson(const QJsonObject& state)
+{
+    // Очищаем текущее состояние
+    board.clear();              // Очищаем доску
+    bazaar->clear();       // Очищаем базар
+    currentPlayerIndex = 0;
+
+    // Очищаем руки игроков и сбрасываем их очки
+    for (Player* player : players) {
+        player->clearHand();
+        player->clearScore();
+    }
+
+    // Восстанавливаем доску
+    QJsonArray boardArray = state["board"].toArray();
+    for (const QJsonValue& tileValue : boardArray) {
+        QJsonObject tileObj = tileValue.toObject();
+        DominoTile tile(tileObj["left"].toInt(), tileObj["right"].toInt());
+        board.append(tile);
+    }
+
+    // Восстанавливаем очки игроков
+    if (state.contains("player_scores")) {
+        QJsonArray scoresArray = state["player_scores"].toArray();
+        for (int i = 0; i < scoresArray.size() && i < players.size(); ++i) {
+            players[i]->setScore(scoresArray[i].toInt());
+        }
+    }
+
+    // Восстанавливаем базар
+    QJsonArray bazaarArray = state["bazaar_tiles"].toArray();
+    QVector<DominoTile> bazaarTiles;
+    for (const QJsonValue& tileValue : bazaarArray) {
+        QJsonObject tileObj = tileValue.toObject();
+        bazaarTiles.append(DominoTile(tileObj["left"].toInt(), tileObj["right"].toInt()));
+    }
+    bazaar->setTiles(bazaarTiles);
+
+    // Восстанавливаем текущего игрока
+    QString currentPlayerName = state["current_player"].toString();
+    for (int i = 0; i < players.size(); ++i) {
+        if (players[i]->getName() == currentPlayerName) {
+            currentPlayerIndex = i;
+            break;
+        }
+    }
+
+    // Восстанавливаем руки игроков
+    if (state.contains("player_hands")) {
+        QJsonArray handsArray = state["player_hands"].toArray();
+        for (int i = 0; i < handsArray.size() && i < players.size(); ++i) {
+            QJsonArray handArray = handsArray[i].toArray();
+            QVector<DominoTile> hand;
+            for (const QJsonValue& tileValue : handArray) {
+                QJsonObject tileObj = tileValue.toObject();
+                hand.append(DominoTile(tileObj["left"].toInt(), tileObj["right"].toInt()));
+            }
+            players[i]->setHand(hand);
+        }
+    }
+
+    // Помечаем игру как начатую
+    emit gameStarted();
 }

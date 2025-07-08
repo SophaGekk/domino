@@ -7,8 +7,8 @@
 class ClickableRect : public QObject, public QGraphicsRectItem {
     Q_OBJECT
 public:
-    using QGraphicsRectItem::QGraphicsRectItem;
     explicit ClickableRect(QGraphicsItem* parent = nullptr);
+    virtual ~ClickableRect() = default;
 
 signals:
     void clicked();

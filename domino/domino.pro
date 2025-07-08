@@ -71,15 +71,10 @@ FORMS += \
     settingswindow.ui \
     waitingdialog.ui
 
-RESOURCES += \icon.qrc
+RESOURCES += icon.qrc
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-# Копирование ресурсов при установке
-target.path = $$PREFIX/bin
-data.files = icon/*
-data.path = $$PREFIX/share/domino
-INSTALLS += target data
