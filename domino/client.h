@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include "domino_tile.h"
+#include <QMainWindow>
 
 class GameWindow;
 
@@ -15,7 +16,7 @@ class Client : public QObject
     Q_OBJECT
 
 public:
-    explicit Client(QObject *parent = nullptr);
+    explicit Client(QMainWindow* mainWindow, QObject *parent = nullptr);
     ~Client();
 
     void sendMove(const DominoTile& tile, bool isLeftEnd);
@@ -33,9 +34,11 @@ signals:
     void newChatMessage(const QString& sender, const QString& message);
     void sessionCreated(const QString& sessionCode, const QString& playerName, int players, int required);
     void playerJoined(const QString& playerName, int currentPlayers, int requiredPlayers);
+    void playerLeft(const QString& playerName, int currentPlayers, int requiredPlayers);
     void errorOccurred(const QString& message);
     void gameStarted(const QJsonObject& state);
     void sessionUpdated(int players, int required);
+    void returnToMainMenuRequested();
 
 private slots:
     void onReadyRead();
@@ -43,6 +46,9 @@ private slots:
 private:
     void processSessionCreated(const QJsonObject& json);
     void processPlayerJoined(const QJsonObject& json);
+
+    void processPlayerLeft(const QJsonObject& json);
+
     void processError(const QJsonObject& json);
     void processMessage(const QString& str);
 
@@ -50,6 +56,7 @@ private:
     QByteArray Data;
     QString m_playerName;
     GameWindow* gameWindow = nullptr;
+    QMainWindow* m_mainWindow;
 };
 
 #endif // CLIENT_H

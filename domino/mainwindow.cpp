@@ -103,7 +103,8 @@ void MainWindow::startLocalGame()
         existingGame = nullptr;
         gameWindow = new GameWindow(players, bots, showReserve, names, nullptr);
         if (players > 1 && bots == 0) {
-            client = new Client();
+            client = new Client(this);
+            connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
 
             // Настраиваем связи
             client->setGameWindow(gameWindow);
@@ -162,12 +163,13 @@ void MainWindow::startHostGame(const QString& playerName, const QString& host, q
         delete client;
     }
     client = new Client(this);
+    connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
 
     connect(client, &Client::sessionCreated, this, &MainWindow::onSessionCreated);
     connect(client, &Client::playerJoined, this, &MainWindow::onPlayerJoined);
-    connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
+    // connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
     connect(client, &Client::errorOccurred, this, &MainWindow::onNetworkError);
-    connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
+    // connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
 
     client->connectToServer(host, port, playerName);
     client->createSession(playerName, playersCount);
@@ -181,11 +183,14 @@ void MainWindow::joinSession(const QString& playerName, const QString& host, qui
         delete client;
     }
     client = new Client(this);
+    connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
 
     connect(client, &Client::playerJoined, this, &MainWindow::onPlayerJoined);
     connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
     connect(client, &Client::errorOccurred, this, &MainWindow::onNetworkError);
     connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
+    connect(client, &Client::playerLeft, this, &MainWindow::onPlayerLeft);
+
 
     client->connectToServer(host, port, playerName);
     client->joinSession(sessionCode, playerName);
@@ -221,6 +226,15 @@ void MainWindow::onPlayerJoined(const QString& playerName, int currentPlayers, i
     }
 }
 
+
+void MainWindow::onPlayerLeft(const QString& playerName, int currentPlayers, int requiredPlayers)
+{
+    if (waitingDialog) {
+        waitingDialog->dropPlayer(playerName);
+        waitingDialog->setPlayersCount(currentPlayers, requiredPlayers);
+    }
+}
+
 void MainWindow::onGameStarted(const QJsonObject& state)
 {
     if (waitingDialog) {
@@ -228,21 +242,26 @@ void MainWindow::onGameStarted(const QJsonObject& state)
         delete waitingDialog;
         waitingDialog = nullptr;
     }
+    qDebug() << "удалили waitingDialog";
 
-    // Создаем пустую игру для десериализации
-    DominoGame* networkGame = new DominoGame(0, 0, QStringList(), this);
-    networkGame->deserializeFromJson(state);
-    existingGame = networkGame;
+    int playerCount = state["player_count"].toInt();
 
-    // Получаем список имен игроков из состояния
     QStringList playerNames;
     QJsonArray playersArray = state["players"].toArray();
     for (const QJsonValue& playerValue : playersArray) {
         playerNames.append(playerValue.toObject()["name"].toString());
     }
 
+    // Создаем пустую игру для десериализации
+    DominoGame* networkGame = new DominoGame(playerCount, 0, playerNames, this);
+    qDebug() << "пустая игра";
+
+    networkGame->deserializeFromJson(state);
+    existingGame = networkGame;
+    qDebug() << "заполнили игру данными с сервера";
+
     // Передаем созданную игру в GameWindow
-    gameWindow = new GameWindow(playerNames.size(), 0, true, playerNames, networkGame, this);
+    gameWindow = new GameWindow(playerCount, 0, true, playerNames, networkGame, this);
     gameWindow->setClient(client);
     gameWindow->setClientPlayerName(client->getPlayerName()); // Передаем имя клиента для определения положения на игровом экране
     qDebug() << "Client player name:" << client->getPlayerName();
@@ -250,7 +269,6 @@ void MainWindow::onGameStarted(const QJsonObject& state)
 
    // gameWindow->loadGameState(state);
     gameWindow->show();
-    this->hide();
 }
 
 void MainWindow::onNetworkError(const QString& message)
@@ -429,4 +447,22 @@ void MainWindow::saveCurrentSettings() {
     if (settingsWindow) {
         settingsWindow->loadSettings();
     }
+}
+
+void MainWindow::returnToMainMenu()
+{
+    // Закрываем все дочерние окна
+    if (gameWindow) {
+        gameWindow->close();
+        delete gameWindow;
+        gameWindow = nullptr;
+    }
+
+    if (waitingDialog) {
+        waitingDialog->close();
+        delete waitingDialog;
+        waitingDialog = nullptr;
+    }
+
+    show();
 }

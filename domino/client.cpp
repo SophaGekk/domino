@@ -1,7 +1,8 @@
 #include "client.h"
 #include "gamewindow.h"
+#include <QMessageBox>
 
-Client::Client(QObject *parent) : QObject(parent), socket(new QTcpSocket(this)), m_playerName("")
+Client::Client(QMainWindow* mainWindow, QObject *parent) : QObject(parent), m_mainWindow(mainWindow), socket(new QTcpSocket(this)), m_playerName("")
 {
     connect(socket, &QTcpSocket::readyRead, this, &Client::onReadyRead);
     connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
@@ -69,7 +70,11 @@ void Client::processMessage(const QString& message) {
     QJsonObject json = doc.object();
     QString type = json["type"].toString();
     qDebug() << "Processing message type:" << type;
-
+    if (type == "game_terminated") {
+        QString reason = json["reason"].toString();
+        QMessageBox::critical(m_mainWindow, "Игра завершена", reason);
+        emit returnToMainMenuRequested();
+    }
     if (type == "session_update") {
         int players = json["players"].toInt();
         int required = json["required"].toInt();
@@ -93,6 +98,10 @@ void Client::processMessage(const QString& message) {
         QString sender = json["sender"].toString();
         QString message = json["message"].toString();
         emit newChatMessage(sender, message);
+    }
+    else if(type == "player_left")
+    {
+        processPlayerLeft(json);
     }
 }
 
@@ -197,6 +206,14 @@ void Client::processPlayerJoined(const QJsonObject& json)
     int current = json["players"].toInt();
     int required = json["required"].toInt();
     emit playerJoined(name, current, required);
+}
+
+void Client::processPlayerLeft(const QJsonObject& json)
+{
+    QString name = json["name"].toString();
+    int current = json["players"].toInt();
+    int required = json["required"].toInt();
+    emit playerLeft(name, current, required);
 }
 
 void Client::processError(const QJsonObject& json)

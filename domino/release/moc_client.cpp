@@ -50,10 +50,12 @@ static constexpr auto qt_meta_stringdata_ZN6ClientE = QtMocHelpers::stringData(
     "playerJoined",
     "currentPlayers",
     "requiredPlayers",
+    "playerLeft",
     "errorOccurred",
     "gameStarted",
     "state",
     "sessionUpdated",
+    "returnToMainMenuRequested",
     "onReadyRead"
 );
 #else  // !QT_MOC_HAS_STRINGDATA
@@ -66,31 +68,35 @@ Q_CONSTINIT static const uint qt_meta_data_ZN6ClientE[] = {
       12,       // revision
        0,       // classname
        0,    0, // classinfo
-       7,   14, // methods
+       9,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-       6,       // signalCount
+       8,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    2,   56,    2, 0x06,    1 /* Public */,
-       5,    4,   61,    2, 0x06,    4 /* Public */,
-      10,    3,   70,    2, 0x06,    9 /* Public */,
-      13,    1,   77,    2, 0x06,   13 /* Public */,
-      14,    1,   80,    2, 0x06,   15 /* Public */,
-      16,    2,   83,    2, 0x06,   17 /* Public */,
+       1,    2,   68,    2, 0x06,    1 /* Public */,
+       5,    4,   73,    2, 0x06,    4 /* Public */,
+      10,    3,   82,    2, 0x06,    9 /* Public */,
+      13,    3,   89,    2, 0x06,   13 /* Public */,
+      14,    1,   96,    2, 0x06,   17 /* Public */,
+      15,    1,   99,    2, 0x06,   19 /* Public */,
+      17,    2,  102,    2, 0x06,   21 /* Public */,
+      18,    0,  107,    2, 0x06,   24 /* Public */,
 
  // slots: name, argc, parameters, tag, flags, initial metatype offsets
-      17,    0,   88,    2, 0x08,   20 /* Private */,
+      19,    0,  108,    2, 0x08,   25 /* Private */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::QString, QMetaType::QString,    3,    4,
     QMetaType::Void, QMetaType::QString, QMetaType::QString, QMetaType::Int, QMetaType::Int,    6,    7,    8,    9,
     QMetaType::Void, QMetaType::QString, QMetaType::Int, QMetaType::Int,    7,   11,   12,
+    QMetaType::Void, QMetaType::QString, QMetaType::Int, QMetaType::Int,    7,   11,   12,
     QMetaType::Void, QMetaType::QString,    4,
-    QMetaType::Void, QMetaType::QJsonObject,   15,
+    QMetaType::Void, QMetaType::QJsonObject,   16,
     QMetaType::Void, QMetaType::Int, QMetaType::Int,    8,    9,
+    QMetaType::Void,
 
  // slots: parameters
     QMetaType::Void,
@@ -122,6 +128,11 @@ Q_CONSTINIT const QMetaObject Client::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
+        // method 'playerLeft'
+        QtPrivate::TypeAndForceComplete<void, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<int, std::false_type>,
+        QtPrivate::TypeAndForceComplete<int, std::false_type>,
         // method 'errorOccurred'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
@@ -132,6 +143,8 @@ Q_CONSTINIT const QMetaObject Client::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
+        // method 'returnToMainMenuRequested'
+        QtPrivate::TypeAndForceComplete<void, std::false_type>,
         // method 'onReadyRead'
         QtPrivate::TypeAndForceComplete<void, std::false_type>
     >,
@@ -146,10 +159,12 @@ void Client::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
         case 0: _t->newChatMessage((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
         case 1: _t->sessionCreated((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[4]))); break;
         case 2: _t->playerJoined((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3]))); break;
-        case 3: _t->errorOccurred((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 4: _t->gameStarted((*reinterpret_cast< std::add_pointer_t<QJsonObject>>(_a[1]))); break;
-        case 5: _t->sessionUpdated((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 6: _t->onReadyRead(); break;
+        case 3: _t->playerLeft((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3]))); break;
+        case 4: _t->errorOccurred((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 5: _t->gameStarted((*reinterpret_cast< std::add_pointer_t<QJsonObject>>(_a[1]))); break;
+        case 6: _t->sessionUpdated((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 7: _t->returnToMainMenuRequested(); break;
+        case 8: _t->onReadyRead(); break;
         default: ;
         }
     }
@@ -177,23 +192,37 @@ void Client::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
             }
         }
         {
+            using _q_method_type = void (Client::*)(const QString & , int , int );
+            if (_q_method_type _q_method = &Client::playerLeft; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
+                *result = 3;
+                return;
+            }
+        }
+        {
             using _q_method_type = void (Client::*)(const QString & );
             if (_q_method_type _q_method = &Client::errorOccurred; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
-                *result = 3;
+                *result = 4;
                 return;
             }
         }
         {
             using _q_method_type = void (Client::*)(const QJsonObject & );
             if (_q_method_type _q_method = &Client::gameStarted; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
-                *result = 4;
+                *result = 5;
                 return;
             }
         }
         {
             using _q_method_type = void (Client::*)(int , int );
             if (_q_method_type _q_method = &Client::sessionUpdated; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
-                *result = 5;
+                *result = 6;
+                return;
+            }
+        }
+        {
+            using _q_method_type = void (Client::*)();
+            if (_q_method_type _q_method = &Client::returnToMainMenuRequested; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
+                *result = 7;
                 return;
             }
         }
@@ -219,14 +248,14 @@ int Client::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 7)
+        if (_id < 9)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 7;
+        _id -= 9;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 7)
+        if (_id < 9)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 7;
+        _id -= 9;
     }
     return _id;
 }
@@ -253,23 +282,36 @@ void Client::playerJoined(const QString & _t1, int _t2, int _t3)
 }
 
 // SIGNAL 3
-void Client::errorOccurred(const QString & _t1)
+void Client::playerLeft(const QString & _t1, int _t2, int _t3)
 {
-    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t3))) };
     QMetaObject::activate(this, &staticMetaObject, 3, _a);
 }
 
 // SIGNAL 4
-void Client::gameStarted(const QJsonObject & _t1)
+void Client::errorOccurred(const QString & _t1)
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
     QMetaObject::activate(this, &staticMetaObject, 4, _a);
 }
 
 // SIGNAL 5
+void Client::gameStarted(const QJsonObject & _t1)
+{
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
+    QMetaObject::activate(this, &staticMetaObject, 5, _a);
+}
+
+// SIGNAL 6
 void Client::sessionUpdated(int _t1, int _t2)
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))) };
-    QMetaObject::activate(this, &staticMetaObject, 5, _a);
+    QMetaObject::activate(this, &staticMetaObject, 6, _a);
+}
+
+// SIGNAL 7
+void Client::returnToMainMenuRequested()
+{
+    QMetaObject::activate(this, &staticMetaObject, 7, nullptr);
 }
 QT_WARNING_POP

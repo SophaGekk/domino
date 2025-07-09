@@ -444,17 +444,54 @@ void Server::clientDisconnected()
 
     qDebug() << "Player disconnected:" << playerName << "from session:" << sessionCode;
 
-    // Оповещаем остальных игроков
+    // Если игра уже начата
+    if (session.gameStarted) {
+        QJsonObject gameOver;
+        gameOver["type"] = "game_terminated";
+        gameOver["reason"] = QString("Игра завершена: игрок %1 покинул игру").arg(playerName);
+
+        for (QTcpSocket* client : session.clientNames.keys()) {
+            sendToClient(client, gameOver);
+            // Отвязываем сокет от сессии перед закрытием
+            socketToSession.remove(client);
+        }
+
+        // Закрываем соединения с игроками
+        closeSessionConnections(session);
+
+        // Удаляем сессию
+        removeSession(sessionCode);
+        return;
+    }
+
+    // Если игра еще не начата
     QJsonObject playerLeft;
     playerLeft["type"] = "player_left";
     playerLeft["name"] = playerName;
+    playerLeft["players"] = static_cast<int>(session.clientNames.size());
+    playerLeft["required"] = session.requiredPlayers;
+
     for (QTcpSocket* client : session.clientNames.keys()) {
         sendToClient(client, playerLeft);
     }
 
-    // Если игра началась и игроков не осталось - удаляем сессию
+    // Удаляем сессию если не осталось игроков
     if (session.clientNames.isEmpty()) {
         removeSession(sessionCode);
+    }
+}
+
+void Server::closeSessionConnections(GameSession& session)
+{
+    for (QTcpSocket* client : session.clientNames.keys()) {
+        // Отправляем сообщение о закрытии соединения
+        QJsonObject closeMsg;
+        closeMsg["type"] = "connection_close";
+        closeMsg["reason"] = "Игра завершена";
+        sendToClient(client, closeMsg);
+
+        // Закрываем сокет
+        client->disconnectFromHost();
     }
 }
 

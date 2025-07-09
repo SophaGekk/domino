@@ -18,6 +18,7 @@ public:
     void addPlayer(const QString& playerName);
     void setPlayersCount(int current, int required);
     void updatePlayersList(const QStringList& players);
+    void dropPlayer(const QString& playerName);
 
 signals:
     void canceled();

@@ -31,6 +31,8 @@ public:
     void applyNonCriticalSettings();
     bool checkCurrentGame(SettingType settingType);
     void startHostGame(const QString& playerName);
+    void returnToMainMenu();
+
 
 private slots:
     void saveCurrentSettings();
@@ -41,6 +43,7 @@ private slots:
     void applySettings(int players, int bots, bool showReserve, bool soundEnabled, bool highlight);
     void onSessionCreated(const QString& sessionCode, const QString& playerName, int players, int required);
     void onPlayerJoined(const QString& playerName, int currentPlayers, int requiredPlayers);
+    void onPlayerLeft(const QString& playerName, int currentPlayers, int requiredPlayers);
     void onGameStarted(const QJsonObject& state);
     void onNetworkError(const QString& message);
     void onSessionUpdated(int players, int required);

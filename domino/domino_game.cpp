@@ -16,8 +16,9 @@
 DominoGame::DominoGame(int playerCount, int BotCount, const QStringList &playerNames, QObject* parent)
     : QObject(parent), playerCount(playerCount), BotCount(BotCount), currentPlayerIndex(0), gameEnd(false) {
     bazaar = new Bazaar();
-    initializePlayers(playerNames);
     startNewGame(playerNames);
+    qDebug() << "пустая игра началась";
+
 
 }
 
@@ -459,45 +460,6 @@ QByteArray DominoGame::serializeGameState() const {
     return data;
 }
 
-void DominoGame::deserializeGameState(const QByteArray& data) {
-    QDataStream stream(data);
-
-    stream >> gameId;
-    stream >> currentPlayerIndex;
-    stream >> currentRound;
-
-    // Десериализация доски
-    int boardSize;
-    stream >> boardSize;
-    board.clear();
-    for (int i = 0; i < boardSize; i++) {
-        int left, right;
-        stream >> left >> right;
-        board.append(DominoTile(left, right));
-    }
-
-    // Десериализация игроков
-    int playerCount;
-    stream >> playerCount;
-    players.clear();
-    for (int i = 0; i < playerCount; i++) {
-        QString name;
-        stream >> name;
-
-        Player* player = new HumanPlayer(name); // Или бот в зависимости от типа
-        int handSize;
-        stream >> handSize;
-
-        QVector<DominoTile> hand;
-        for (int j = 0; j < handSize; j++) {
-            int left, right;
-            stream >> left >> right;
-            hand.append(DominoTile(left, right));
-        }
-        player->setHand(hand);
-        players.append(player);
-    }
-}
 
 void DominoGame::deserializeFromJson(const QJsonObject& state)
 {

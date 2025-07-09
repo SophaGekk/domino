@@ -44,6 +44,7 @@ private:
     void startGame(const QString& sessionCode);
     void removeSession(const QString& sessionCode);
     QString generateSessionCode();
+    void closeSessionConnections(GameSession& session);
 
 
 public slots:

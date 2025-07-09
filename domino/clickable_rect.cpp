@@ -1,4 +1,3 @@
-// clickable_rect.cpp
 #include "clickable_rect.h"
 
 ClickableRect::ClickableRect(QGraphicsItem* parent)

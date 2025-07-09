@@ -41,3 +41,11 @@ void WaitingDialog::updatePlayersList(const QStringList& players)
         ui->listPlayers->addItem(player);
     }
 }
+
+void WaitingDialog::dropPlayer(const QString& playerName)
+{
+    QList<QListWidgetItem*> items = ui->listPlayers->findItems(playerName, Qt::MatchExactly);
+    if (!items.isEmpty()) {
+        delete items.first();
+    }
+}
