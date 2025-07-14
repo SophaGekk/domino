@@ -37,8 +37,10 @@ signals:
     void playerLeft(const QString& playerName, int currentPlayers, int requiredPlayers);
     void errorOccurred(const QString& message);
     void gameStarted(const QJsonObject& state);
+    void gameStateReceived(const QJsonObject& state);
     void sessionUpdated(int players, int required);
     void returnToMainMenuRequested();
+    void gameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
 
 private slots:
     void onReadyRead();

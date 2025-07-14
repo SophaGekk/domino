@@ -60,6 +60,7 @@ public:
 
     void onLeftEndClicked();
     void onRightEndClicked();
+    void handleMove(DominoTile tile, bool isLeftEnd);
     void writeGameStats();
     DominoGame *game;
 
@@ -76,6 +77,8 @@ public:
     void setClient(Client* server);
     void setClientPlayerName(const QString& name) { clientPlayerName = name; }
     void loadGameState(const QJsonObject& state);
+    void showFinalGameOverNetwork(const QVector<Player*>& players, const QVector<int>& scores, int maxScore, bool isDraw, const QString& winnerName);
+    void handleNetworkGameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
 
 signals:
     void returnToMainMenu();
@@ -94,6 +97,7 @@ private slots:
     void onReserveClicked();
     void updateUI();
     void on_pushButton_skip_clicked();
+
 
 private:
     bool isNewGame;
@@ -151,15 +155,15 @@ private:
     bool isValidMessage = false;
 
     bool isNetworkGame = false;
-    Client* сlient = nullptr;
+    Client* client = nullptr;
     DominoGame* existingGame = nullptr;
 
     QString clientPlayerName;
     int clientPlayerIndex = -1; // Позиция клиента среди игроков
-    QVector<int> playerPositions; // Распределение позиций на экране
+    QHash<QString, int> playerPositions;  // Распределение позиций на экране
 
-    void determinePlayerPositions();
-    void updateHandForPosition(int playerIndex, int screenPosition);
+    void determinePlayerPositions(const QJsonObject& state);
+    void updateHandForPosition(Player* player, int position, bool isOpen);
 };
 
 #endif // GAMEWINDOW_H

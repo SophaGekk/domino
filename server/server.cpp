@@ -39,6 +39,8 @@ void Server::processMove(QTcpSocket* socket, const QJsonObject& data)
     GameSession& session = sessions[sessionCode];
     if (!session.gameStarted) return;
 
+    if (session.gameFinished) return;
+
     // Проверка, что это ход текущего игрока
     if (session.clientNames[socket] != session.game->getCurrentPlayer()->getName())
         return;
@@ -47,12 +49,37 @@ void Server::processMove(QTcpSocket* socket, const QJsonObject& data)
     int right = data["right"].toInt();
     bool isLeftEnd = data["is_left_end"].toBool();
 
-    DominoTile tile(left, right);
-    session.game->placeTile(tile, isLeftEnd);
-    session.game->getCurrentPlayer()->removeTile(tile);
-    session.game->makeMove();
+    Player* currentPlayer = session.game->getCurrentPlayer();
+    DominoTile* tileToRemove = nullptr;
 
-    broadcastGameState(sessionCode);
+    // Ищем костяшку в руке игрока
+    const auto& hand = currentPlayer->getHand();
+    for (const DominoTile& tile : hand) {
+        if ((tile.getLeftValue() == left && tile.getRightValue() == right) ||
+            (tile.getLeftValue() == right && tile.getRightValue() == left)) {
+            // Снимаем константность через const_cast
+            tileToRemove = const_cast<DominoTile*>(&tile);
+            break;
+        }
+    }
+    if (tileToRemove) {
+        DominoTile tileCopy = *tileToRemove;
+        if (session.game->getBoard().isEmpty()) {// Первый ход
+            session.game->getBoard().append(tileCopy);
+        } else {
+            session.game->placeTile(tileCopy, isLeftEnd);
+        }
+        qDebug() << "положили";
+        currentPlayer->removeTile(*tileToRemove);
+        qDebug() << "удалили";
+        session.game->makeMove();
+        qDebug() << "передали ход";
+        broadcastGameState(sessionCode);
+
+        checkGameOver(sessionCode);
+    } else {
+        qDebug() << "Tile not found in player's hand!";
+    }
 }
 
 void Server::processBazaar(QTcpSocket* socket)
@@ -73,6 +100,7 @@ void Server::processBazaar(QTcpSocket* socket)
         session.game->getCurrentPlayer()->addTile(tile);
         session.game->makeMove();
         broadcastGameState(sessionCode);
+        checkGameOver(sessionCode);
     }
 }
 
@@ -92,6 +120,7 @@ void Server::processSkip(QTcpSocket* socket)
     if (!session.game->currentPlayerCanMove() && session.game->getBazaar()->isEmpty()) {
         session.game->makeMove();
         broadcastGameState(sessionCode);
+        checkGameOver(sessionCode);
     }
 }
 
@@ -110,6 +139,7 @@ void Server::processChat(QTcpSocket* socket, const QJsonObject& data)
     chatMessage["type"] = "chat";
     chatMessage["sender"] = sender;
     chatMessage["message"] = message;
+    chatMessage["time"] = QTime::currentTime().toString("hh:mm");
 
     // Рассылаем всем клиентам в сессии
     for (QTcpSocket* client : session.clientNames.keys()) {
@@ -227,14 +257,6 @@ void Server::processJoinSession(QTcpSocket* socket, const QJsonObject& data)
         return;
     }
 
-    if (session.clientNames.size() >= session.requiredPlayers) {
-        QJsonObject error;
-        error["type"] = "error";
-        error["message"] = "Session is full";
-        sendToClient(socket, error);
-        return;
-    }
-
     // Добавляем игрока в сессию
     session.clientNames[socket] = playerName;
     session.connectedNames.insert(playerName);
@@ -282,17 +304,88 @@ void Server::startGame(const QString& sessionCode)
     GameSession& session = sessions[sessionCode];
 
     QStringList playerNames;
-    for (const QString& name : session.clientNames.values()) {
-        playerNames.append(name);
+    for (QTcpSocket* client : session.clientNames.keys()) {
+        playerNames.append(session.clientNames[client]);
     }
 
     session.game = new DominoGame(session.requiredPlayers, 0, playerNames, this);
     session.gameStarted = true;
 
+    broadcastGameStart(sessionCode);
+
     // Отправляем начальное состояние игры всем игрокам
     broadcastGameState(sessionCode);
 
     qDebug() << "Game started for session:" << sessionCode;
+}
+
+void Server::broadcastGameStart(const QString& sessionCode)
+{
+    if (!sessions.contains(sessionCode)) return;
+
+    GameSession& session = sessions[sessionCode];
+
+    QJsonObject startMessage;
+    startMessage["type"] = "game_start";
+
+    // Сериализация доски
+    QJsonArray boardArray;
+    for (const DominoTile& tile : session.game->getBoard()) {
+        QJsonObject tileObj;
+        tileObj["left"] = tile.getLeftValue();
+        tileObj["right"] = tile.getRightValue();
+        boardArray.append(tileObj);
+    }
+    startMessage["board"] = boardArray;
+
+    // Текущий игрок
+    startMessage["current_player"] = session.game->getCurrentPlayer()->getName();
+
+    // Счет игроков
+    QJsonArray scoresArray;
+    for (Player* player : session.game->getPlayers()) {
+        scoresArray.append(player->getScore());
+    }
+    startMessage["player_scores"] = scoresArray;
+
+    // Сериализация базара
+    QJsonArray bazaarArray;
+    for (const DominoTile& tile : session.game->getBazaar()->getTiles()) {
+        QJsonObject tileObj;
+        tileObj["left"] = tile.getLeftValue();
+        tileObj["right"] = tile.getRightValue();
+        bazaarArray.append(tileObj);
+    }
+    startMessage["bazaar_tiles"] = bazaarArray;
+
+    // Руки игроков
+    QJsonArray handsArray;
+    for (Player* player : session.game->getPlayers()) {
+        QJsonArray handArray;
+        for (const DominoTile& tile : player->getHand()) {
+            QJsonObject tileObj;
+            tileObj["left"] = tile.getLeftValue();
+            tileObj["right"] = tile.getRightValue();
+            handArray.append(tileObj);
+        }
+        handsArray.append(handArray);
+    }
+    startMessage["player_hands"] = handsArray;
+
+    startMessage["current_player"] = session.game->getCurrentPlayer()->getName();
+
+    // Список игроков
+    QJsonArray playersArray;
+    for (Player* player : session.game->getPlayers()) {
+        QJsonObject playerObj;
+        playerObj["name"] = player->getName();
+        playersArray.append(playerObj);
+    }
+    startMessage["players"] = playersArray;
+
+    for (QTcpSocket* client : session.clientNames.keys()) {
+        sendToClient(client, startMessage);
+    }
 }
 
 void Server::broadcastGameState(const QString& sessionCode)
@@ -347,6 +440,8 @@ void Server::broadcastGameState(const QString& sessionCode)
         handsArray.append(handArray);
     }
     state["player_hands"] = handsArray;
+
+    state["current_player"] = session.game->getCurrentPlayer()->getName();
 
     // Список игроков
     QJsonArray playersArray;
@@ -507,5 +602,37 @@ void Server::removeSession(const QString& sessionCode)
         }
         sessions.remove(sessionCode);
         qDebug() << "Session removed:" << sessionCode;
+    }
+}
+
+void Server::checkGameOver(const QString& sessionCode) {
+    if (!sessions.contains(sessionCode)) return;
+    GameSession& session = sessions[sessionCode];
+
+    if (session.game->isGameOver()) {
+        int winnerIndex = session.game->determineWinner();
+        QString winnerName = (winnerIndex != -1)
+                                 ? session.game->getPlayers()[winnerIndex]->getName()
+                                 : "";
+        bool isDraw = (winnerIndex == -1);
+
+        QJsonObject gameOver;
+        gameOver["type"] = "game_over";
+        gameOver["winner"] = winnerName;
+        gameOver["is_draw"] = isDraw;
+
+        QJsonArray namesArray;
+        QJsonArray scoresArray;
+        for (Player* player : session.game->getPlayers()) {
+            namesArray.append(player->getName());
+            scoresArray.append(player->getScore());
+        }
+        gameOver["player_names"] = namesArray;
+        gameOver["player_scores"] = scoresArray;
+        gameOver["max_score"] = session.game->getMaxScore();
+
+        for (QTcpSocket* client : session.clientNames.keys()) {
+            sendToClient(client, gameOver);
+        }
     }
 }

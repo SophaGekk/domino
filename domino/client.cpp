@@ -1,6 +1,7 @@
 #include "client.h"
 #include "gamewindow.h"
 #include <QMessageBox>
+#include <QJsonArray>
 
 Client::Client(QMainWindow* mainWindow, QObject *parent) : QObject(parent), m_mainWindow(mainWindow), socket(new QTcpSocket(this)), m_playerName("")
 {
@@ -90,9 +91,13 @@ void Client::processMessage(const QString& message) {
     else if (type == "error") {
         processError(json);
     }
+    else if (type == "game_start") {
+        qDebug() << "Game start";
+        emit gameStarted(json);
+    }
     else if (type == "game_state") {
         qDebug() << "Game state received";
-        emit gameStarted(json);
+        emit gameStateReceived(json);
     }
     else if (type == "chat") {
         QString sender = json["sender"].toString();
@@ -102,6 +107,29 @@ void Client::processMessage(const QString& message) {
     else if(type == "player_left")
     {
         processPlayerLeft(json);
+    }
+    else if (type == "game_over") {
+        QString winner = json["winner"].toString();
+        bool isDraw = json["is_draw"].toBool();
+
+        // Извлекаем имена игроков
+        QVector<QString> playerNames;
+        QJsonArray namesArray = json["player_names"].toArray();
+        for (const QJsonValue& value : namesArray) {
+            playerNames.append(value.toString());
+        }
+
+        // Извлекаем очки
+        QVector<int> playerScores;
+        QJsonArray scoresArray = json["player_scores"].toArray();
+        for (const QJsonValue& value : scoresArray) {
+            playerScores.append(value.toInt());
+        }
+
+
+        int maxScore = json["max_score"].toInt();
+
+        emit gameOver(playerNames, playerScores, maxScore, winner, isDraw);
     }
 }
 

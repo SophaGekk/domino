@@ -167,7 +167,7 @@ void MainWindow::startHostGame(const QString& playerName, const QString& host, q
 
     connect(client, &Client::sessionCreated, this, &MainWindow::onSessionCreated);
     connect(client, &Client::playerJoined, this, &MainWindow::onPlayerJoined);
-    // connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
+    connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
     connect(client, &Client::errorOccurred, this, &MainWindow::onNetworkError);
     // connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
 

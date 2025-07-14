@@ -11,6 +11,7 @@
 struct GameSession {
     DominoGame* game = nullptr;
     bool gameStarted = false;
+    bool gameFinished = false;
     int requiredPlayers;
     QMap<QTcpSocket*, QString> clientNames; // socket -> player name
     QSet<QString> connectedNames; // для проверки уникальности имен
@@ -27,6 +28,8 @@ public:
     Server(QObject *parent = nullptr);
     void sendToClient(QTcpSocket* socket, const QJsonObject& message);
     void startServer();
+    void checkGameOver(const QString& sessionCode);
+
 
 private:
     QVector<QTcpSocket*> Sockets;
@@ -35,6 +38,7 @@ private:
     QMap<QTcpSocket*, QString> socketToSession; // socket -> session code
 
     void broadcastGameState(const QString& sessionCode);
+    void broadcastGameStart(const QString& sessionCode);
     void processCreateSession(QTcpSocket* socket, const QJsonObject& data);
     void processJoinSession(QTcpSocket* socket, const QJsonObject& data);
     void processMove(QTcpSocket* socket, const QJsonObject& data);
