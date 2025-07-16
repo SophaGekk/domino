@@ -62,7 +62,7 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
 
     reserveButton = new QPushButton(this);
     reserveButton->setObjectName("reserveButton");
-    ui->labelReserveLayout->addWidget(reserveButton); // Добавьте кнопку в layout
+    ui->labelReserveLayout->addWidget(reserveButton);
     connect(reserveButton, &QPushButton::clicked, this, &GameWindow::onReserveClicked);
 
     ui->scrollBottomHand->setStyleSheet("QScrollBar:horizontal { height: 12px; }");
@@ -126,7 +126,9 @@ void GameWindow::updateGameState() {
         Player* winner = game->getPlayers()[winnerIndex];
 
         // Блокируем дальнейшие действия для ботов
-        game->blockSignals(true);
+        if (!isNetworkGame) {
+            game->blockSignals(true);
+        }
 
         // Показываем сообщение только один раз
         if (!gameOverShown) {
@@ -146,41 +148,101 @@ void GameWindow::updateGameState() {
     // Обновление резерва
     updateReserveLabel(showReserve);
 
-    // Обновление информации об игроках
-    const auto& players = game->getPlayers();
-    ui->labelNameBottom->setText(game->getCurrentPlayer()->getName());
-    ui->labelScoreBottom->setText(QString::number(game->getCurrentPlayer()->getScore()));
-    ui->avatarBottom->setPixmap(game->getCurrentPlayer()->getAvatar()); // Установка аватарки
-
     game->updateNextPlayerIndex();
-    if(players.size() >= 3)
-    {
+    const auto& players = game->getPlayers();
+    if(players.size() >= 3) {
         game->updateThirdPlayerIndex();
-        // правый бок
-        ui->labelNameRight->setText(game->getNextPlayer()->getName());
-        ui->labelScoreRight->setText(QString::number(game->getNextPlayer()->getScore()));
-        //ui->avatarRight->setPixmap(game->getNextPlayer()->getAvatar());
-
-        //верхний
-        ui->labelNameTop->setText(game->getThirdPlayer()->getName());
-        ui->labelScoreTop->setText(QString::number(game->getThirdPlayer()->getScore()));
-        ui->avatarTop->setPixmap(game->getThirdPlayer()->getAvatar());
-
-        if(players.size() == 4)
-        {
+        if(players.size() == 4) {
             game->updateFourthPlayerIndex();
-            // левый бок
-            ui->labelNameLeft->setText(game->getFourthPlayer()->getName());
-            ui->labelScoreLeft->setText(QString::number(game->getFourthPlayer()->getScore()));
-            //ui->avatarLeft->setPixmap(game->getFourthPlayer()->getAvatar());
         }
     }
-    else
-    {
-        //верхний
-        ui->labelNameTop->setText(game->getNextPlayer()->getName());
-        ui->labelScoreTop->setText(QString::number(game->getNextPlayer()->getScore()));
-        ui->avatarTop->setPixmap(game->getNextPlayer()->getAvatar());
+
+    // Обновление информации об игроках
+    if (isNetworkGame) {
+        int localIndex = -1;
+        for (int i = 0; i < players.size(); ++i) {
+            if (players[i]->getName() == clientPlayerName) {
+                localIndex = i;
+                break;
+            }
+        }
+
+        if (localIndex == -1) {
+            qWarning() << "Local player not found!";
+            return;
+        }
+
+        // внизу
+        Player* localPlayer = players[localIndex];
+        ui->labelNameBottom->setText(localPlayer->getName());
+        ui->labelScoreBottom->setText(QString::number(localPlayer->getScore()));
+        ui->avatarBottom->setPixmap(localPlayer->getAvatar());
+
+        // Распределение остальных игроков
+        if (players.size() >= 3) {
+            // Правый игрок: следующий после локального
+            int rightIndex = (localIndex + 1) % players.size();
+            Player* rightPlayer = players[rightIndex];
+            ui->labelNameRight->setText(rightPlayer->getName());
+            ui->labelScoreRight->setText(QString::number(rightPlayer->getScore()));
+            // ui->avatarRight->setPixmap(rightPlayer->getAvatar());
+
+            // Верхний игрок: через одного от локального
+            int topIndex = (localIndex + 2) % players.size();
+            Player* topPlayer = players[topIndex];
+            ui->labelNameTop->setText(topPlayer->getName());
+            ui->labelScoreTop->setText(QString::number(topPlayer->getScore()));
+            ui->avatarTop->setPixmap(topPlayer->getAvatar());
+
+            // Левый игрок (только для 4 игроков)
+            if (players.size() == 4) {
+                int leftIndex = (localIndex + 3) % players.size();
+                Player* leftPlayer = players[leftIndex];
+                ui->labelNameLeft->setText(leftPlayer->getName());
+                ui->labelScoreLeft->setText(QString::number(leftPlayer->getScore()));
+                // ui->avatarLeft->setPixmap(leftPlayer->getAvatar());
+            }
+        }
+        else {
+            int topIndex = (localIndex + 1) % players.size();
+            Player* topPlayer = players[topIndex];
+            ui->labelNameTop->setText(topPlayer->getName());
+            ui->labelScoreTop->setText(QString::number(topPlayer->getScore()));
+            ui->avatarTop->setPixmap(topPlayer->getAvatar());
+        }
+    }
+    else {
+        ui->labelNameBottom->setText(game->getCurrentPlayer()->getName());
+        ui->labelScoreBottom->setText(QString::number(game->getCurrentPlayer()->getScore()));
+        ui->avatarBottom->setPixmap(game->getCurrentPlayer()->getAvatar()); // Установка аватарки
+
+        if(players.size() >= 3)
+        {
+            // правый бок
+            ui->labelNameRight->setText(game->getNextPlayer()->getName());
+            ui->labelScoreRight->setText(QString::number(game->getNextPlayer()->getScore()));
+            //ui->avatarRight->setPixmap(game->getNextPlayer()->getAvatar());
+
+            //верхний
+            ui->labelNameTop->setText(game->getThirdPlayer()->getName());
+            ui->labelScoreTop->setText(QString::number(game->getThirdPlayer()->getScore()));
+            ui->avatarTop->setPixmap(game->getThirdPlayer()->getAvatar());
+
+            if(players.size() == 4)
+            {
+                // левый бок
+                ui->labelNameLeft->setText(game->getFourthPlayer()->getName());
+                ui->labelScoreLeft->setText(QString::number(game->getFourthPlayer()->getScore()));
+                //ui->avatarLeft->setPixmap(game->getFourthPlayer()->getAvatar());
+            }
+        }
+        else
+        {
+            //верхний
+            ui->labelNameTop->setText(game->getNextPlayer()->getName());
+            ui->labelScoreTop->setText(QString::number(game->getNextPlayer()->getScore()));
+            ui->avatarTop->setPixmap(game->getNextPlayer()->getAvatar());
+        }
     }
 
 
@@ -564,17 +626,42 @@ void GameWindow::handleHighlightClick(bool isLeftEnd) {
 
 void GameWindow::updateHandDisplay() {
     if (isNetworkGame) {
+        // Получаем список игроков
         const auto& players = game->getPlayers();
-        for (Player* player : players) {
-            QString playerName = player->getName();
-            if (playerPositions.contains(playerName)) {
-                int position = playerPositions[playerName];
-                bool isOurHand = (playerName == clientPlayerName);
-                updateHandForPosition(player, position, isOurHand);
+        int localIndex = -1;
+
+        // Находим индекс локального игрока
+        for (int i = 0; i < players.size(); ++i) {
+            if (players[i]->getName() == clientPlayerName) {
+                localIndex = i;
+                break;
             }
         }
-    } else {
 
+        if (localIndex == -1) return; // Локальный игрок не найден
+
+        // Обновляем руки для каждой позиции
+        updateHandForPosition(players[localIndex], 0, true); // Наш игрок (низ)
+
+        if (players.size() >= 3) {
+            int rightIndex = (localIndex + 1) % players.size();
+            updateHandForPosition(players[rightIndex], 1, false); // Правый игрок
+
+            int topIndex = (localIndex + 2) % players.size();
+            updateHandForPosition(players[topIndex], 2, false); // Верхний игрок
+
+            if (players.size() == 4) {
+                int leftIndex = (localIndex + 3) % players.size();
+                updateHandForPosition(players[leftIndex], 3, false); // Левый игрок
+            }
+        }
+        else
+        {
+            int topIndex = (localIndex + 1) % players.size();
+            updateHandForPosition(players[topIndex], 2, false); // Верхний игрок
+        }
+
+    } else {
         if (game->getCurrentPlayer()->isBot()) {
             if(game->getPlayers().size() == 2 || (game->getPlayers().size() == 3 && BotCount == 1)|| (game->getPlayers().size() == 3 && BotCount == 2 && !game->getNextPlayer()->isBot()) || (game->getPlayers().size() == 4 && ((BotCount == 3 || BotCount == 2) && game->getNextPlayer()->isBot() && !game->getThirdPlayer()->isBot())))
             {
@@ -726,7 +813,7 @@ void GameWindow::updateHandDisplay() {
 
                 if(game->getPlayers().size()==4)
                 {
-                    const auto& leftHand = game->getNextPlayer()->getHand();;
+                    const auto& leftHand = game->getFourthPlayer()->getHand();;
                     // Удалить лишние элементы
                     while (leftHandLabels.size() > leftHand.size()) {
                         DominoLabel* label = leftHandLabels.takeLast();
@@ -838,11 +925,20 @@ void GameWindow::onReserveClicked() {
 }
 
 void GameWindow::handleBazaarTileSelected(const DominoTile& tile) {
-    // Добавить домино в руку игрока
-    game->getCurrentPlayer()->addTile(tile);
-    game->getBazaar()->removeTile(tile);
-    // Обновить интерфейс
-    updateGameState();
+    if (isNetworkGame) {
+        client->sendBazaarTileRequest(tile);
+
+        // Закрываем оверлей
+        if (m_bazaarOverlay) {
+            m_bazaarOverlay->close();
+            m_bazaarOverlay->deleteLater();
+            m_bazaarOverlay = nullptr;
+        }
+    } else {
+        game->getCurrentPlayer()->addTile(tile);
+        game->getBazaar()->removeTile(tile);
+        updateGameState();
+    }
 }
 
 void GameWindow::showGameOver() {
@@ -1013,14 +1109,18 @@ void GameWindow::updateUI() {
     ui->pushButton_skip->setEnabled(!game->getCurrentPlayer()->isBot() && !canMove); // Активируем кнопку, если ходов нет
 }
 
-void GameWindow::on_pushButton_skip_clicked() {
-    if (!game->currentPlayerCanMove() && game->getBazaar()->isEmpty() && !game->checkForBlockedGame()) {
-        int nextIndex = (game->getCurrentPlayerIndex() + 1) % game->getPlayers().size();
-        game->setCurrentPlayerIndex(nextIndex);
-        emit game->playerChanged(nextIndex);     // Переход к следующему игроку
-        onPlayerChanged(nextIndex);
-        updateGameState();      // Обновление состояния игры
-        updateHandDisplay();
+void GameWindow::on_pushButton_skip_clicked() {    
+    if (isNetworkGame) {
+        client->sendSkipRequest();
+    } else {
+        if (!game->currentPlayerCanMove() && game->getBazaar()->isEmpty() && !game->checkForBlockedGame()) {
+            int nextIndex = (game->getCurrentPlayerIndex() + 1) % game->getPlayers().size();
+            game->setCurrentPlayerIndex(nextIndex);
+            emit game->playerChanged(nextIndex);     // Переход к следующему игроку
+            onPlayerChanged(nextIndex);
+            updateGameState();      // Обновление состояния игры
+            updateHandDisplay();
+        }
     }
 }
 
@@ -1161,230 +1261,89 @@ void GameWindow::determinePlayerPositions(const QJsonObject& state)
     }
 }
 
-void GameWindow::updateHandForPosition(Player* player, int position, bool isOpen)
-{
+void GameWindow::updateHandForPosition(Player* player, int position, bool isOpen) {
+    if (!player) return;
+
     QVector<DominoLabel*>* labels = nullptr;
     QLayout* layout = nullptr;
     QSize size;
 
     switch (position) {
     case 0: // Наш игрок (низ)
-        layout = ui->horizontalLayoutBottomHand;
         labels = &bottomHandLabels;
+        layout = ui->horizontalLayoutBottomHand;
         size = QSize(40, 80);
         break;
     case 1: // Правый игрок
-        layout = ui->verticalLayoutRightHand;
         labels = &rightHandLabels;
-        size = QSize(30, 50);
+        layout = ui->verticalLayoutRightHand;
+        size = QSize(50, 30);
         break;
     case 2: // Верхний игрок
-        layout = ui->horizontalLayoutTopHand;
         labels = &topHandLabels;
+        layout = ui->horizontalLayoutTopHand;
         size = QSize(30, 50);
         break;
     case 3: // Левый игрок
-        layout = ui->verticalLayoutLeftHand;
         labels = &leftHandLabels;
-        size = QSize(30, 50);
+        layout = ui->verticalLayoutLeftHand;
+        size = QSize(50, 30);
         break;
+    default:
+        return;
     }
 
-    // Очищаем текущие элементы
-    while (!labels->isEmpty()) {
+    const auto& hand = player->getHand();
+
+    // Удалить лишние элементы
+    while (labels->size() > hand.size()) {
         DominoLabel* label = labels->takeLast();
         layout->removeWidget(label);
         delete label;
     }
 
-    // Добавляем костяшки
-    for (const DominoTile& tile : player->getHand()) {
+    // Добавить новые элементы
+    for (int i = labels->size(); i < hand.size(); ++i) {
         DominoLabel* label = new DominoLabel(this);
         label->setFixedSize(size);
+        label->setStyleSheet("background: white; border: 1px solid black;");
 
         if (isOpen) {
-            // Свои костяшки - открытые
-            label->setDots(tile.getLeftValue(), tile.getRightValue(), true, true);
+            // Для своих костяшек добавляем обработчик клика
             connect(label, &DominoLabel::clicked, this, [this, label]() {
                 handleDominoClick(label);
             });
-        } else {
-            // Чужие костяшки - закрытые
-            label->setLineVisible(false);
         }
 
         layout->addWidget(label);
         labels->append(label);
     }
-}
 
-void GameWindow::loadGameState(const QJsonObject& state)
-{
-    // 1. Десериализация состояния игры
-    if (existingGame) {
-        existingGame->deserializeFromJson(state);
-    } else {
-        qWarning() << "No game instance available for deserialization";
-        return;
-    }
-
-    // 2. Обновление интерфейса
-    // a) Доска
-    QJsonArray boardArray = state["board"].toArray();
-    // Очистка текущей доски
-    QGraphicsScene* scene = ui->dominoArea->scene();
-    if (!scene) {
-        scene = new QGraphicsScene(this);
-        ui->dominoArea->setScene(scene);
-    } else {
-        scene->clear();
-    }
-
-    const QVector<DominoTile>& board = existingGame->getBoard();
-
-    // Рассчитываем начальную позицию (центр экрана)
-    int currentX = ui->dominoArea->width() / 2 - 30;
-    int centerY = ui->dominoArea->height() / 2;
-    int yForDouble = centerY - 40;    // Для дублей выше центра
-    int yForNonDouble = centerY + 10; // Для обычных костяшек ниже центра
-
-    // Создаем графические элементы для каждой костяшки
-    for (const DominoTile& tile : board) {
-        bool isDouble = (tile.getLeftValue() == tile.getRightValue());
-        int width = isDouble ? 40 : 80;
-        int height = isDouble ? 80 : 40;
-
-        DominoLabel* label = new DominoLabel();
-        label->setDots(tile.getLeftValue(), tile.getRightValue(), isDouble, true);
-        label->setFixedSize(width, height);
-
-        QGraphicsProxyWidget* proxy = scene->addWidget(label);
-        proxy->setPos(currentX, isDouble ? yForDouble : yForNonDouble);
-
-        currentX += width + 5; // Перемещаем позицию для следующей костяшки
-    }
-
-    // b) Руки игроков
-    updateHandDisplay();
-
-    // c) Базар
-    QJsonArray bazaarArray = state["bazaar_tiles"].toArray();
-    // Очистка текущего базара
-    QLayoutItem* item1;
-    while ((item1 = ui->labelReserveLayout->takeAt(0))) {
-        delete item1->widget();
-        delete item1;
-    }
-
-    // Добавление костяшек в базар
-    for (const QJsonValue& tileValue : bazaarArray) {
-        QJsonObject tileObj = tileValue.toObject();
-
-        DominoLabel* tileLabel = new DominoLabel(this);
-        tileLabel->setFixedSize(30, 50);
-        tileLabel->setLineVisible(false); // Тыльная сторона
-        tileLabel->setStyleSheet("background: white; border: 1px solid black;");
-
-        ui->labelReserveLayout->addWidget(tileLabel);
-    }
-
-    // Счет игроков
-    QJsonArray scoresArray = state["player_scores"].toArray();
-    QJsonArray playersArray = state["players"].toArray();
-
-    // Сначала создаем список имен игроков
-    QStringList playerNames;
-    for (int i = 0; i < playersArray.size(); ++i) {
-        playerNames.append(playersArray[i].toObject()["name"].toString());
-    }
-
-    // Обновляем счет
-    for (int i = 0; i < scoresArray.size(); ++i) {
-        int score = scoresArray[i].toInt();
-        QString playerName = playerNames[i];
-
-        // Проверяем, есть ли позиция для этого игрока
-        if (!playerPositions.contains(playerName)) continue;
-
-        int position = playerPositions[playerName];
-        switch (position) {
-        case 0: // Bottom
-            ui->labelScoreBottom->setText(QString::number(score));
-            break;
-        case 1: // Right
-            ui->labelScoreRight->setText(QString::number(score));
-            break;
-        case 2: // Top
-            ui->labelScoreTop->setText(QString::number(score));
-            break;
-        case 3: // Left
-            ui->labelScoreLeft->setText(QString::number(score));
-            break;
+    // Обновить значения для всех костяшек
+    for (int i = 0; i < hand.size(); ++i) {
+        DominoTile tile = hand[i];
+        if (isOpen) {
+            // Свои костяшки - открытые
+            labels->at(i)->setDots(tile.getLeftValue(), tile.getRightValue(), true, true);
+        } else {
+            // Чужие костяшки - закрытые
+            labels->at(i)->setLineVisible(false);
         }
+        labels->at(i)->show();
     }
-
-    // Текущий игрок
-    QString currentPlayer = state["current_player"].toString();
-    // Сброс подсветки для всех игроков
-    ui->labelNameBottom->setStyleSheet("");
-    ui->labelNameRight->setStyleSheet("");
-    ui->labelNameTop->setStyleSheet("");
-    ui->labelNameLeft->setStyleSheet("");
-
-    // Подсвечиваем текущего игрока по имени
-    if (playerPositions.contains(currentPlayer)) {
-        int position = playerPositions[currentPlayer];
-        switch (position) {
-        case 0: // Bottom
-            ui->labelNameBottom->setStyleSheet("background-color: black; font-weight: bold;");
-            break;
-        case 1: // Right
-            ui->labelNameRight->setStyleSheet("background-color: black; font-weight: bold;");
-            break;
-        case 2: // Top
-            ui->labelNameTop->setStyleSheet("background-color: black; font-weight: bold;");
-            break;
-        case 3: // Left
-            ui->labelNameLeft->setStyleSheet("background-color: black; font-weight: bold;");
-            break;
-        }
-    }
-
-    // Обновление имен игроков
-    for (int i = 0; i < playerNames.size(); ++i) {
-        QString playerName = playerNames[i];
-        if (!playerPositions.contains(playerName)) continue;
-
-        int position = playerPositions[playerName];
-        switch (position) {
-        case 0: // Bottom
-            ui->labelNameBottom->setText(playerName);
-            break;
-        case 1: // Right
-            ui->labelNameRight->setText(playerName);
-            break;
-        case 2: // Top
-            ui->labelNameTop->setText(playerName);
-            break;
-        case 3: // Left
-            ui->labelNameLeft->setText(playerName);
-            break;
-        }
-    }
-
-    // Перерисовка интерфейса
-    repaint();
 }
 
 void GameWindow::handleNetworkGameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw)  {
+    qDebug() << "Мы тут";
     QVector<Player*> players;
     for (int i = 0; i < playerNames.size(); i++) {
         Player* p = new HumanPlayer(playerNames[i]);
         p->setScore(playerScores[i]);
         players.append(p);
     }
-
+    qDebug() << "Создали игроков";
     showFinalGameOverNetwork(players, playerScores, maxScore, isDraw, winner);
+    qDebug() << "Создали окно";
 
     // Очищаем временные объекты после использования
     QTimer::singleShot(0, this, [players]() {

@@ -250,3 +250,16 @@ void Client::processError(const QJsonObject& json)
     emit errorOccurred(message);
 }
 
+void Client::sendBazaarTileRequest(const DominoTile& tile) {
+    QJsonObject message;
+    message["type"] = "bazaar_tile";
+    message["left"] = tile.getLeftValue();
+    message["right"] = tile.getRightValue();
+
+    QJsonDocument doc(message);
+    QByteArray data = doc.toJson();
+
+    QDataStream out(socket);
+    out.setVersion(QDataStream::Qt_6_2);
+    out << QString::fromUtf8(data);
+}

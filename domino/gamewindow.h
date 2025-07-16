@@ -76,7 +76,6 @@ public:
     void updateFromJson(const QJsonObject& state);
     void setClient(Client* server);
     void setClientPlayerName(const QString& name) { clientPlayerName = name; }
-    void loadGameState(const QJsonObject& state);
     void showFinalGameOverNetwork(const QVector<Player*>& players, const QVector<int>& scores, int maxScore, bool isDraw, const QString& winnerName);
     void handleNetworkGameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
 

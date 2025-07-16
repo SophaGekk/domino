@@ -29,6 +29,7 @@ public:
     void joinSession(const QString& sessionCode, const QString& playerName);
     void disconnectFromHost();
     QString getPlayerName() const { return m_playerName; }
+    void sendBazaarTileRequest(const DominoTile& tile);
 
 signals:
     void newChatMessage(const QString& sender, const QString& message);
@@ -53,6 +54,7 @@ private:
 
     void processError(const QJsonObject& json);
     void processMessage(const QString& str);
+
 
     QTcpSocket *socket;
     QByteArray Data;

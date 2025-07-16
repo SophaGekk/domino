@@ -49,6 +49,9 @@ private:
     void removeSession(const QString& sessionCode);
     QString generateSessionCode();
     void closeSessionConnections(GameSession& session);
+    void processBazaarTile(QTcpSocket* socket, const QJsonObject& data);
+    void sendErrorMessage(QTcpSocket* socket, const QString& message);
+
 
 
 public slots:

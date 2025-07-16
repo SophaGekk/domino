@@ -114,13 +114,20 @@ void Server::processSkip(QTcpSocket* socket)
     if (!session.gameStarted) return;
 
     // Проверка, что это ход текущего игрока
-    if (session.game->getCurrentPlayer()->getName() != session.clientNames[socket])
+    if (session.clientNames[socket] != session.game->getCurrentPlayer()->getName()) {
+        qDebug() << "Player" << session.clientNames[socket] << "tried to skip out of turn";
         return;
+    }
 
+    // Проверяем, может ли игрок пропустить ход
     if (!session.game->currentPlayerCanMove() && session.game->getBazaar()->isEmpty()) {
-        session.game->makeMove();
+        session.game->makeMove(); // Передаем ход следующему игроку
         broadcastGameState(sessionCode);
         checkGameOver(sessionCode);
+    } else {
+        qDebug() << "Skip conditions not met for player" << session.game->getCurrentPlayer()->getName();
+        // Отправляем сообщение об ошибке конкретному клиенту
+        sendErrorMessage(socket, "You cannot skip your turn now");
     }
 }
 
@@ -324,7 +331,6 @@ void Server::broadcastGameStart(const QString& sessionCode)
     if (!sessions.contains(sessionCode)) return;
 
     GameSession& session = sessions[sessionCode];
-
     QJsonObject startMessage;
     startMessage["type"] = "game_start";
 
@@ -511,6 +517,9 @@ void Server::slotReadyRead()
             else if (type == "bazaar") {
                 processBazaar(socket);
             }
+            else if (type == "bazaar_tile") {
+                processBazaarTile(socket, json);
+            }
             else if (type == "skip") {
                 processSkip(socket);
             }
@@ -635,4 +644,64 @@ void Server::checkGameOver(const QString& sessionCode) {
             sendToClient(client, gameOver);
         }
     }
+}
+
+void Server::processBazaarTile(QTcpSocket* socket, const QJsonObject& data) {
+    if (!socketToSession.contains(socket)) return;
+    QString sessionCode = socketToSession[socket];
+    if (!sessions.contains(sessionCode)) return;
+
+    GameSession& session = sessions[sessionCode];
+    if (!session.gameStarted) return;
+
+    // Проверка, что это ход текущего игрока
+    if (session.clientNames[socket] != session.game->getCurrentPlayer()->getName())
+        return;
+
+    int left = data["left"].toInt();
+    int right = data["right"].toInt();
+    DominoTile selectedTile(left, right);
+
+    Bazaar* bazaar = session.game->getBazaar();
+
+    // Пытаемся найти и удалить выбранную костяшку
+    bool tileRemoved = false;
+    const QVector<DominoTile>& tiles = bazaar->getTiles();
+    for (const DominoTile& tile : tiles) {
+        if ((tile.getLeftValue() == left && tile.getRightValue() == right) ||
+            (tile.getLeftValue() == right && tile.getRightValue() == left)) {
+            bazaar->removeTile(tile);
+            session.game->getCurrentPlayer()->addTile(tile);
+            tileRemoved = true;
+            break;
+        }
+    }
+
+    if (tileRemoved) {
+        // Убрано session.game->makeMove() - ход остается у текущего игрока
+        broadcastGameState(sessionCode);
+        checkGameOver(sessionCode);
+    } else {
+        qDebug() << "Failed to remove tile from bazaar: (" << left << "," << right << ")";
+    }
+
+    if (!session.game->currentPlayerCanMove() && session.game->getBazaar()->isEmpty()) {
+        session.game->makeMove();
+        broadcastGameState(sessionCode);
+        checkGameOver(sessionCode);
+    }
+}
+
+void Server::sendErrorMessage(QTcpSocket* socket, const QString& message)
+{
+    QJsonObject errorMsg;
+    errorMsg["type"] = "error";
+    errorMsg["message"] = message;
+
+    QJsonDocument doc(errorMsg);
+    QByteArray data = doc.toJson();
+
+    QDataStream out(socket);
+    out.setVersion(QDataStream::Qt_6_2);
+    out << QString::fromUtf8(data);
 }

@@ -261,14 +261,14 @@ void MainWindow::onGameStarted(const QJsonObject& state)
     qDebug() << "заполнили игру данными с сервера";
 
     // Передаем созданную игру в GameWindow
-    gameWindow = new GameWindow(playerCount, 0, true, playerNames, networkGame, this);
+    gameWindow = new GameWindow(playerCount, 0, true, playerNames, networkGame);
     gameWindow->setClient(client);
     gameWindow->setClientPlayerName(client->getPlayerName()); // Передаем имя клиента для определения положения на игровом экране
     qDebug() << "Client player name:" << client->getPlayerName();
     qDebug() << "Game players:" << playerNames;
 
-   // gameWindow->loadGameState(state);
     gameWindow->show();
+    this->hide();
 }
 
 void MainWindow::onNetworkError(const QString& message)
