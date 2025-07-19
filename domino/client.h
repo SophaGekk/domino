@@ -18,7 +18,7 @@ class Client : public QObject
 public:
     explicit Client(QMainWindow* mainWindow, QObject *parent = nullptr);
     ~Client();
-
+    void sendNewRoundRequest();
     void sendMove(const DominoTile& tile, bool isLeftEnd);
     void sendBazaarRequest();
     void sendSkipRequest();
@@ -42,6 +42,7 @@ signals:
     void sessionUpdated(int players, int required);
     void returnToMainMenuRequested();
     void gameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
+    void roundOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
 
 private slots:
     void onReadyRead();

@@ -65,6 +65,7 @@ static constexpr auto qt_meta_stringdata_ZN6ClientE = QtMocHelpers::stringData(
     "maxScore",
     "winner",
     "isDraw",
+    "roundOver",
     "onReadyRead"
 );
 #else  // !QT_MOC_HAS_STRINGDATA
@@ -77,27 +78,28 @@ Q_CONSTINIT static const uint qt_meta_data_ZN6ClientE[] = {
       12,       // revision
        0,       // classname
        0,    0, // classinfo
-      11,   14, // methods
+      12,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-      10,       // signalCount
+      11,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    2,   80,    2, 0x06,    1 /* Public */,
-       5,    4,   85,    2, 0x06,    4 /* Public */,
-      10,    3,   94,    2, 0x06,    9 /* Public */,
-      13,    3,  101,    2, 0x06,   13 /* Public */,
-      14,    1,  108,    2, 0x06,   17 /* Public */,
-      15,    1,  111,    2, 0x06,   19 /* Public */,
-      17,    1,  114,    2, 0x06,   21 /* Public */,
-      18,    2,  117,    2, 0x06,   23 /* Public */,
-      19,    0,  122,    2, 0x06,   26 /* Public */,
-      20,    5,  123,    2, 0x06,   27 /* Public */,
+       1,    2,   86,    2, 0x06,    1 /* Public */,
+       5,    4,   91,    2, 0x06,    4 /* Public */,
+      10,    3,  100,    2, 0x06,    9 /* Public */,
+      13,    3,  107,    2, 0x06,   13 /* Public */,
+      14,    1,  114,    2, 0x06,   17 /* Public */,
+      15,    1,  117,    2, 0x06,   19 /* Public */,
+      17,    1,  120,    2, 0x06,   21 /* Public */,
+      18,    2,  123,    2, 0x06,   23 /* Public */,
+      19,    0,  128,    2, 0x06,   26 /* Public */,
+      20,    5,  129,    2, 0x06,   27 /* Public */,
+      27,    5,  140,    2, 0x06,   33 /* Public */,
 
  // slots: name, argc, parameters, tag, flags, initial metatype offsets
-      27,    0,  134,    2, 0x08,   33 /* Private */,
+      28,    0,  151,    2, 0x08,   39 /* Private */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::QString, QMetaType::QString,    3,    4,
@@ -109,6 +111,7 @@ Q_CONSTINIT static const uint qt_meta_data_ZN6ClientE[] = {
     QMetaType::Void, QMetaType::QJsonObject,   16,
     QMetaType::Void, QMetaType::Int, QMetaType::Int,    8,    9,
     QMetaType::Void,
+    QMetaType::Void, QMetaType::QStringList, 0x80000000 | 22, QMetaType::Int, QMetaType::QString, QMetaType::Bool,   21,   23,   24,   25,   26,
     QMetaType::Void, QMetaType::QStringList, 0x80000000 | 22, QMetaType::Int, QMetaType::QString, QMetaType::Bool,   21,   23,   24,   25,   26,
 
  // slots: parameters
@@ -168,6 +171,13 @@ Q_CONSTINIT const QMetaObject Client::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
         QtPrivate::TypeAndForceComplete<bool, std::false_type>,
+        // method 'roundOver'
+        QtPrivate::TypeAndForceComplete<void, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QVector<QString> &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QVector<int> &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<int, std::false_type>,
+        QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
+        QtPrivate::TypeAndForceComplete<bool, std::false_type>,
         // method 'onReadyRead'
         QtPrivate::TypeAndForceComplete<void, std::false_type>
     >,
@@ -189,7 +199,8 @@ void Client::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
         case 7: _t->sessionUpdated((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
         case 8: _t->returnToMainMenuRequested(); break;
         case 9: _t->gameOver((*reinterpret_cast< std::add_pointer_t<QList<QString>>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QList<int>>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<bool>>(_a[5]))); break;
-        case 10: _t->onReadyRead(); break;
+        case 10: _t->roundOver((*reinterpret_cast< std::add_pointer_t<QList<QString>>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QList<int>>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<bool>>(_a[5]))); break;
+        case 11: _t->onReadyRead(); break;
         default: ;
         }
     }
@@ -197,6 +208,13 @@ void Client::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
         switch (_id) {
         default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
         case 9:
+            switch (*reinterpret_cast<int*>(_a[1])) {
+            default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
+            case 1:
+                *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QList<int> >(); break;
+            }
+            break;
+        case 10:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 1:
@@ -277,6 +295,13 @@ void Client::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
                 return;
             }
         }
+        {
+            using _q_method_type = void (Client::*)(const QVector<QString> & , const QVector<int> & , int , const QString & , bool );
+            if (_q_method_type _q_method = &Client::roundOver; *reinterpret_cast<_q_method_type *>(_a[1]) == _q_method) {
+                *result = 10;
+                return;
+            }
+        }
     }
 }
 
@@ -299,14 +324,14 @@ int Client::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 11)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 11;
+        _id -= 12;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 11)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 11;
+        _id -= 12;
     }
     return _id;
 }
@@ -378,5 +403,12 @@ void Client::gameOver(const QVector<QString> & _t1, const QVector<int> & _t2, in
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t3))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t4))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t5))) };
     QMetaObject::activate(this, &staticMetaObject, 9, _a);
+}
+
+// SIGNAL 10
+void Client::roundOver(const QVector<QString> & _t1, const QVector<int> & _t2, int _t3, const QString & _t4, bool _t5)
+{
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t3))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t4))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t5))) };
+    QMetaObject::activate(this, &staticMetaObject, 10, _a);
 }
 QT_WARNING_POP

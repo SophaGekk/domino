@@ -200,6 +200,7 @@ void Server::processCreateSession(QTcpSocket* socket, const QJsonObject& data)
     newSession.hostName = playerName;
     newSession.clientNames[socket] = playerName;
     newSession.connectedNames.insert(playerName);
+    newSession.host = socket;
 
     // Таймер для очистки неактивных сессий
     newSession.cleanupTimer = new QTimer(this);
@@ -494,6 +495,9 @@ void Server::slotReadyRead()
             processJoinSession(socket, json);
         }
 
+        if (type == "new_round") {
+            processNewRound(socket);
+        }
         // Для остальных сообщений проверяем привязку к сессии
         if (!socketToSession.contains(socket)) {
             qDebug() << "Socket not in any session, ignoring message";
@@ -625,10 +629,17 @@ void Server::checkGameOver(const QString& sessionCode) {
                                  : "";
         bool isDraw = (winnerIndex == -1);
 
-        QJsonObject gameOver;
-        gameOver["type"] = "game_over";
-        gameOver["winner"] = winnerName;
-        gameOver["is_draw"] = isDraw;
+        // Определяем тип завершения: раунд или вся игра
+        bool isFinalGameOver = false;
+        if (winnerIndex != -1) {
+            Player* winner = session.game->getPlayers()[winnerIndex];
+            isFinalGameOver = (winner->getScore() >= session.game->getMaxScore());
+        }
+
+        QJsonObject gameOverMsg;
+        gameOverMsg["type"] = isFinalGameOver ? "game_over" : "round_over";
+        gameOverMsg["winner"] = winnerName;
+        gameOverMsg["is_draw"] = isDraw;
 
         QJsonArray namesArray;
         QJsonArray scoresArray;
@@ -636,12 +647,12 @@ void Server::checkGameOver(const QString& sessionCode) {
             namesArray.append(player->getName());
             scoresArray.append(player->getScore());
         }
-        gameOver["player_names"] = namesArray;
-        gameOver["player_scores"] = scoresArray;
-        gameOver["max_score"] = session.game->getMaxScore();
+        gameOverMsg["player_names"] = namesArray;
+        gameOverMsg["player_scores"] = scoresArray;
+        gameOverMsg["max_score"] = session.game->getMaxScore();
 
         for (QTcpSocket* client : session.clientNames.keys()) {
-            sendToClient(client, gameOver);
+            sendToClient(client, gameOverMsg);
         }
     }
 }
@@ -704,4 +715,31 @@ void Server::sendErrorMessage(QTcpSocket* socket, const QString& message)
     QDataStream out(socket);
     out.setVersion(QDataStream::Qt_6_2);
     out << QString::fromUtf8(data);
+}
+
+void Server::processNewRound(QTcpSocket* socket) {
+    if (!socketToSession.contains(socket)) return;
+    QString sessionCode = socketToSession[socket];
+    if (!sessions.contains(sessionCode)) return;
+
+    GameSession& session = sessions[sessionCode];
+
+    // Проверяем, что запрос от хоста
+    if (session.host != socket) {
+        sendErrorMessage(socket, "Хост должен начать новый раунд!");
+        return;
+    }
+
+    // Получаем имена игроков
+    QStringList playerNames;
+    for (Player* player : session.game->getPlayers()) {
+        playerNames.append(player->getName());
+    }
+
+    // Запускаем новый раунд
+    session.game->startNewRound(playerNames);
+    session.gameFinished = false;
+
+    // Рассылаем новое состояние игры
+    broadcastGameState(sessionCode);
 }

@@ -171,6 +171,7 @@ void MainWindow::startHostGame(const QString& playerName, const QString& host, q
     connect(client, &Client::errorOccurred, this, &MainWindow::onNetworkError);
     // connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
 
+    isHost = true;
     client->connectToServer(host, port, playerName);
     client->createSession(playerName, playersCount);
 
@@ -191,7 +192,7 @@ void MainWindow::joinSession(const QString& playerName, const QString& host, qui
     connect(client, &Client::sessionUpdated, this, &MainWindow::onSessionUpdated);
     connect(client, &Client::playerLeft, this, &MainWindow::onPlayerLeft);
 
-
+    isHost = false;
     client->connectToServer(host, port, playerName);
     client->joinSession(sessionCode, playerName);
 
@@ -266,6 +267,8 @@ void MainWindow::onGameStarted(const QJsonObject& state)
     gameWindow->setClientPlayerName(client->getPlayerName()); // Передаем имя клиента для определения положения на игровом экране
     qDebug() << "Client player name:" << client->getPlayerName();
     qDebug() << "Game players:" << playerNames;
+    gameWindow->setHost(isHost);
+    connect(gameWindow, &GameWindow::returnToMainMenu, this, &MainWindow::show);
 
     gameWindow->show();
     this->hide();
@@ -273,7 +276,7 @@ void MainWindow::onGameStarted(const QJsonObject& state)
 
 void MainWindow::onNetworkError(const QString& message)
 {
-    QMessageBox::critical(this, "Ошибка сети", message);
+    QMessageBox::critical(this, "Ошибка", message);
 
     if (waitingDialog) {
         waitingDialog->close();
@@ -456,12 +459,14 @@ void MainWindow::returnToMainMenu()
         gameWindow->close();
         delete gameWindow;
         gameWindow = nullptr;
+        isHost = false;
     }
 
     if (waitingDialog) {
         waitingDialog->close();
         delete waitingDialog;
         waitingDialog = nullptr;
+        isHost = false;
     }
 
     show();

@@ -73,5 +73,6 @@ private:
 
     DominoGame* existingGame = nullptr;
     QString sessionCode;
+    bool isHost = false;
 };
 #endif // MAINWINDOW_H

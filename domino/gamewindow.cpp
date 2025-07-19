@@ -39,9 +39,6 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
         isNetworkGame = true;
         game = existingGame;
         game->setParent(this);
-        connect(client, &Client::gameOver, this, &GameWindow::handleNetworkGameOver);
-
-
     } else {
         isNetworkGame = false;
         // Режим локальной игры: создаем новую игру
@@ -113,6 +110,19 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
     connect(chatManager, &ChatManager::newMessage, this, &GameWindow::updateChatHistory);
 
     connect(ui->pushButton_skip, &QPushButton::clicked, this, &GameWindow::on_pushButton_skip_clicked);
+
+
+    m_currentPlayerLabel = new QLabel(this);
+    m_currentPlayerLabel->setAlignment(Qt::AlignCenter);
+    m_currentPlayerLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; background: rgba(255,255,255,0.7); border-radius: 10px; padding: 5px;");
+    m_currentPlayerLabel->setGeometry(width()/2 - 150, 10, 300, 30);
+    m_currentPlayerLabel->hide();
+
+    m_turnHintTimer = new QTimer(this);
+    m_turnHintTimer->setSingleShot(true);
+    connect(m_turnHintTimer, &QTimer::timeout, this, [this]() {
+        m_currentPlayerLabel->hide();
+    });
 
     updateGameState();
     setupHands();
@@ -246,10 +256,35 @@ void GameWindow::updateGameState() {
     }
 
 
+    // Проверка, является ли ход текущего клиента
+    bool isOurTurn = false;
+    if (isNetworkGame) {
+        QString currentPlayerName = game->getCurrentPlayer()->getName();
+
+        // Отображение информации о текущем игроке
+        m_currentPlayerLabel->setText("Сейчас ходит: " + currentPlayerName);
+        m_currentPlayerLabel->show();
+        m_turnHintTimer->start(3000); // Скрыть через 3 секунды
+        isOurTurn = (currentPlayerName == clientPlayerName);
+
+        for (DominoLabel* label : bottomHandLabels) {
+            label->setEnabled(isOurTurn);
+        }
+        reserveButton->setEnabled(isOurTurn);
+        // Если это наш ход и мы в сетевой игре, показать подсказку
+        if (isOurTurn) {
+            QMessageBox::information(this, "Ваш ход", "Сейчас ваша очередь сделать ход!");
+        }
+    }
+
+
     updateHandDisplay();
     // Подсветка допустимых ходов
     if (isHighlightEnabled && !game->getCurrentPlayer()->isBot() && !game->isGameOver()) {
-        highlightValidTiles();
+        if(!isNetworkGame || (isNetworkGame && isOurTurn))
+        {
+           highlightValidTiles();
+        }
 
     } else {
         clearHighlights();
@@ -964,12 +999,34 @@ void GameWindow::showGameOver() {
     dialog->move(geometry().center() - dialog->rect().center());
     dialog->show();
 
-    connect(dialog, &GameOverDialog::newRoundRequested, this, [this, dialog]() {
-        dialog->close();
-        game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
-        ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();
-        updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
-    });
+    if(isNetworkGame)
+    {
+        connect(dialog, &GameOverDialog::newRoundRequested, this, [this, dialog]() {
+            dialog->close();
+
+            game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
+            ui->dominoArea->setAlignment(Qt::AlignCenter), isGameOverShown = false, gameOverShown = false, clearBoard();
+            updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
+
+            // Отправляем запрос на новый раунд
+            if (client && this->isHost) {
+                client->sendNewRoundRequest();
+            }
+            else if(client)
+            {
+                onNetworkError("Только Хост может начать новый раунд!");
+            }
+        });
+    }
+    else
+    {
+        connect(dialog, &GameOverDialog::newRoundRequested, this, [this, dialog]() {
+            dialog->close();
+            game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
+                ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();
+            updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
+        });
+    }
 
     connect(dialog, &GameOverDialog::exitToMainMenu, this, [this]() {
         // При выходе в меню записываем статистику
@@ -1021,6 +1078,12 @@ void GameWindow::keyPressEvent(QKeyEvent* event) {
             event->accept(); // Запрет дальнейшей обработки esc
         }
         return; // Выход без передачи события родителю
+    }
+
+    if (event->key() == Qt::Key_H) {
+        showTurnHint();
+        event->accept();
+        return;
     }
     QWidget::keyPressEvent(event);
 }
@@ -1111,6 +1174,7 @@ void GameWindow::updateUI() {
 
 void GameWindow::on_pushButton_skip_clicked() {    
     if (isNetworkGame) {
+        QMessageBox::information(this, "Ход пропущен",  QString("%1 пропускает ход").arg(game->getCurrentPlayer()->getName()));
         client->sendSkipRequest();
     } else {
         if (!game->currentPlayerCanMove() && game->getBazaar()->isEmpty() && !game->checkForBlockedGame()) {
@@ -1149,13 +1213,14 @@ void GameWindow::highlightValidTiles() {
         label->setHighlighted(isValid, Qt::green);
     }
 }
+
 void GameWindow::handleNoValidMoves() {
     if (!game->getBazaar()->isEmpty()) {
         QMessageBox::information(this, "Подсказка",
-                                 "Нет подходящих ходов. Возьмите костяшку из базара!");
+                                 "Нет подходящих ходов. Возьмите костяшку из Резерва!");
     } else {
         QMessageBox::information(this, "Подсказка",
-                                 "Базар пуст. Нажмите 'Пропустить ход'");
+                                 "Резерв пуст. Нажмите 'Пропустить ход'");
         ui->pushButton_skip->setEnabled(true);
     }
 }
@@ -1230,8 +1295,8 @@ void GameWindow::updateFromJson(const QJsonObject& state)
     updateBoard();
     updateHandDisplay();
 }
-void GameWindow::setClient(Client* server) {
-    client = server;
+
+void GameWindow::setClient(Client* client) {
     this->client = client;
 
     connect(client, &Client::gameStarted, this, &GameWindow::updateFromJson);
@@ -1239,6 +1304,9 @@ void GameWindow::setClient(Client* server) {
         chatManager->sendMessage(sender, message);
     });
     connect(client, &Client::gameStateReceived, this, &GameWindow::updateFromJson);
+    connect(client, &Client::gameOver, this, &GameWindow::showFinalGameOver);
+    connect(client, &Client::roundOver, this, &GameWindow::showGameOver);
+    connect(client, &Client::errorOccurred, this, &GameWindow::onNetworkError);
 }
 
 void GameWindow::determinePlayerPositions(const QJsonObject& state)
@@ -1333,63 +1401,26 @@ void GameWindow::updateHandForPosition(Player* player, int position, bool isOpen
     }
 }
 
-void GameWindow::handleNetworkGameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw)  {
-    qDebug() << "Мы тут";
-    QVector<Player*> players;
-    for (int i = 0; i < playerNames.size(); i++) {
-        Player* p = new HumanPlayer(playerNames[i]);
-        p->setScore(playerScores[i]);
-        players.append(p);
-    }
-    qDebug() << "Создали игроков";
-    showFinalGameOverNetwork(players, playerScores, maxScore, isDraw, winner);
-    qDebug() << "Создали окно";
-
-    // Очищаем временные объекты после использования
-    QTimer::singleShot(0, this, [players]() {
-        qDeleteAll(players);
-    });
+void GameWindow::setHost(bool isHost) {
+    this->isHost = isHost;
 }
 
-void GameWindow::showFinalGameOverNetwork(const QVector<Player*>& players, const QVector<int>& scores, int maxScore, bool isDraw, const QString& winnerName) {
-    if (isGameOverShown) return;
-    isGameOverShown = true;
+void GameWindow::onNetworkError(const QString& message)
+{
+    QMessageBox::critical(this, "Ошибка", message);
+}
 
-    // Затемнение фона
-    if (!m_darkOverlay) {
-        m_darkOverlay = new QWidget(this);
-        m_darkOverlay->setStyleSheet("background: rgba(0, 0, 0, 150);");
-        m_darkOverlay->setGeometry(rect());
-        m_darkOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
-    }
-    m_darkOverlay->show();
+void GameWindow::showTurnHint() {
+    QString hint;
 
-    try {
-        if (!isDraw) {
-            // Находим настоящего победителя в локальной игре
-            Player* winner = nullptr;
-            for (Player* p : players) {
-                if (p->getName() == winnerName) {
-                    winner = p;
-                    break;
-                }
-            }
-            if (winner) winner->addWin();
-            writeGameStats();
-        }
-    } catch (const std::exception& e) {
-        qCritical() << "Ошибка записи статистики:" << e.what();
+    if (game->getBoard().isEmpty()) {
+        hint = "Первый ход: нужно выложить дубль или самую 'тяжелую' костяшку";
+    } else {
+        QVector<int> ends = game->getBoardEnds();
+        hint = QString("Текущие концы доски: %1 и %2\n"
+                       "Вы можете ходить костяшкой, которая совпадает с одним из концов")
+                   .arg(ends.first()).arg(ends.last());
     }
 
-
-    // Создаем финальное окно победы
-    FinalGameOverDialog* dialog = new FinalGameOverDialog(players, scores, maxScore, isDraw, this);
-
-    dialog->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->adjustSize();
-    dialog->move(geometry().center() - dialog->rect().center());
-    dialog->show();
-
-    connect(dialog, &FinalGameOverDialog::exitToMainMenu, this, &GameWindow::onHomeClicked);
+    QMessageBox::information(this, "Подсказка", hint);
 }

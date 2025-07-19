@@ -76,8 +76,10 @@ public:
     void updateFromJson(const QJsonObject& state);
     void setClient(Client* server);
     void setClientPlayerName(const QString& name) { clientPlayerName = name; }
-    void showFinalGameOverNetwork(const QVector<Player*>& players, const QVector<int>& scores, int maxScore, bool isDraw, const QString& winnerName);
-    void handleNetworkGameOver(const QVector<QString>& playerNames, const QVector<int>& playerScores, int maxScore, const QString& winner, bool isDraw);
+    void setHost(bool isHost);
+    void onNetworkError(const QString& message);
+    void showTurnHint();
+
 
 signals:
     void returnToMainMenu();
@@ -163,6 +165,10 @@ private:
 
     void determinePlayerPositions(const QJsonObject& state);
     void updateHandForPosition(Player* player, int position, bool isOpen);
+
+    bool isHost = false;
+    QLabel* m_currentPlayerLabel; // Метка для отображения текущего игрока
+    QTimer* m_turnHintTimer;      // Таймер для показа подсказок
 };
 
 #endif // GAMEWINDOW_H

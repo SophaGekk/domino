@@ -108,28 +108,29 @@ void Client::processMessage(const QString& message) {
     {
         processPlayerLeft(json);
     }
-    else if (type == "game_over") {
+    else if (type == "round_over" || type == "game_over") {
         QString winner = json["winner"].toString();
         bool isDraw = json["is_draw"].toBool();
 
-        // Извлекаем имена игроков
         QVector<QString> playerNames;
         QJsonArray namesArray = json["player_names"].toArray();
         for (const QJsonValue& value : namesArray) {
             playerNames.append(value.toString());
         }
 
-        // Извлекаем очки
         QVector<int> playerScores;
         QJsonArray scoresArray = json["player_scores"].toArray();
         for (const QJsonValue& value : scoresArray) {
             playerScores.append(value.toInt());
         }
 
-
         int maxScore = json["max_score"].toInt();
 
-        emit gameOver(playerNames, playerScores, maxScore, winner, isDraw);
+        if (type == "game_over") {
+            emit gameOver(playerNames, playerScores, maxScore, winner, isDraw);
+        } else { // round_over
+            emit roundOver(playerNames, playerScores, maxScore, winner, isDraw);
+        }
     }
 }
 
@@ -256,6 +257,17 @@ void Client::sendBazaarTileRequest(const DominoTile& tile) {
     message["left"] = tile.getLeftValue();
     message["right"] = tile.getRightValue();
 
+    QJsonDocument doc(message);
+    QByteArray data = doc.toJson();
+
+    QDataStream out(socket);
+    out.setVersion(QDataStream::Qt_6_2);
+    out << QString::fromUtf8(data);
+}
+
+void Client::sendNewRoundRequest() {
+    QJsonObject message;
+    message["type"] = "new_round";
     QJsonDocument doc(message);
     QByteArray data = doc.toJson();
 

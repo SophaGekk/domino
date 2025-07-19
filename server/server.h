@@ -17,6 +17,7 @@ struct GameSession {
     QSet<QString> connectedNames; // для проверки уникальности имен
     QString hostName;
     QTimer* cleanupTimer; // для удаления неактивных сессий
+    QTcpSocket* host = nullptr;
 };
 
 
@@ -35,7 +36,7 @@ private:
     QVector<QTcpSocket*> Sockets;
     QByteArray Data;
     QMap<QString, GameSession> sessions; // session code -> GameSession
-    QMap<QTcpSocket*, QString> socketToSession; // socket -> session code
+    QMap<QTcpSocket*, QString> socketToSession; // socket -> session code'
 
     void broadcastGameState(const QString& sessionCode);
     void broadcastGameStart(const QString& sessionCode);
@@ -51,6 +52,7 @@ private:
     void closeSessionConnections(GameSession& session);
     void processBazaarTile(QTcpSocket* socket, const QJsonObject& data);
     void sendErrorMessage(QTcpSocket* socket, const QString& message);
+    void processNewRound(QTcpSocket* socket);
 
 
 
