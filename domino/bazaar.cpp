@@ -1,6 +1,8 @@
 #include "bazaar.h"
 #include "domino_tile.h"
 #include <algorithm>
+#include <random>
+#include <chrono>
 
 Bazaar::Bazaar() {
     initialize();
@@ -15,7 +17,9 @@ void Bazaar::initialize() {
         }
     }
     // Перемешиваем
-    std::random_shuffle(tiles.begin(), tiles.end());
+    auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 rng(seed);
+    std::shuffle(tiles.begin(), tiles.end(), rng);
 }
 
 bool Bazaar::isEmpty() const {

@@ -66,10 +66,10 @@ void DominoGame::initializePlayers(const QStringList &playerNames) {
     }
 
 }
+
 // Раздача костяшек
 void DominoGame::dealTiles() {
     bazaar->initialize();
-
     int tilesPerPlayer = (playerCount == 2) ? 7 : 5;
 
     for (Player* player : players) {
@@ -165,8 +165,6 @@ void DominoGame::startNewGame(const QStringList &playerNames) {
     setGameId(QDateTime::currentDateTime().toString(Qt::ISODate));
     // Очищаем предыдущее состояние
     board.clear();
-    bazaar->initialize();
-
     // Инициализируем игроков
     initializePlayers(playerNames);
 
@@ -206,12 +204,16 @@ void DominoGame::calculateScores() {
         }
         if(player == players[winnerIndex]){winnerScore = score;}
         totalScore += score;
+        qDebug() << "score^" << score;
     }
+    qDebug() << "totalScore^" << totalScore;
 
     // Начисляем очки победителю по правилам
     if (winnerIndex != -1) {
         Player* winner = players[winnerIndex];
         winner->setScore(totalScore - winnerScore);
+        qDebug() << "winner^" << winner->getScore();
+
     }
 
     // Проверяем достижение лимита очков
@@ -395,6 +397,7 @@ void DominoGame::startNewRound(const QStringList& playerNames) {
     for (Player* player : players) {
         scores.append(player->getScore());
         wins.append(player->getWins());
+        qDebug() << "Сохранение очков для" << player->getName() << ":" << player->getScore();
     }
 
     // Полная переинициализация игры
@@ -408,6 +411,7 @@ void DominoGame::startNewRound(const QStringList& playerNames) {
         if (i < wins.size()) {
             players[i]->setWins(wins[i]); // Восстанавливаем победы
         }
+        qDebug() << "Восстановление очков для" << players[i]->getName() << ":" << scores[i];
     }
 
     // Сброс состояния
@@ -520,6 +524,9 @@ void DominoGame::deserializeFromJson(const QJsonObject& state)
             }
             players[i]->setHand(hand);
         }
+    }
+    if (state.contains("current_round")) {
+        setCurrentRound(state["current_round"].toInt());
     }
 
     // Помечаем игру как начатую

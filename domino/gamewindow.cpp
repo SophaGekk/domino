@@ -1005,12 +1005,12 @@ void GameWindow::showGameOver() {
             dialog->close();
 
             game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
-            ui->dominoArea->setAlignment(Qt::AlignCenter), isGameOverShown = false, gameOverShown = false, clearBoard();
-            updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
+            ui->dominoArea->setAlignment(Qt::AlignCenter);
 
             // Отправляем запрос на новый раунд
             if (client && this->isHost) {
                 client->sendNewRoundRequest();
+                updateGameState();gameOverShown = false;isGameOverShown = false, clearBoard(); m_darkOverlay->deleteLater(); game->doubleCall = false;
             }
             else if(client)
             {
@@ -1023,7 +1023,7 @@ void GameWindow::showGameOver() {
         connect(dialog, &GameOverDialog::newRoundRequested, this, [this, dialog]() {
             dialog->close();
             game->blockSignals(false), ui->dominoArea->setFixedSize(669, 349),  ui->scrollDominoArea->setStyleSheet("QScrollArea { border: none; }"),
-                ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();
+            ui->dominoArea->setAlignment(Qt::AlignCenter), game->startNewRound(playerNames), isGameOverShown = false, gameOverShown = false, clearBoard();
             updateGameState(); m_darkOverlay->deleteLater(); game->doubleCall = false;
         });
     }
@@ -1032,6 +1032,8 @@ void GameWindow::showGameOver() {
         // При выходе в меню записываем статистику
         try {
             writeGameStats();
+            qDebug() << "writeGameStats запись";
+
         } catch (const std::exception& e) {
             qCritical() << "Ошибка записи статистики:" << e.what();
         }
@@ -1291,7 +1293,6 @@ void GameWindow::updateFromJson(const QJsonObject& state)
     clearSelection();
 
     // Обновляем UI
-    updateGameState();
     updateBoard();
     updateHandDisplay();
 }

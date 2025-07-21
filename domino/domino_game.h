@@ -55,8 +55,11 @@ public:
     Bazaar* getBazaar();
 
     const Bazaar* getBazaarConst() const;
-    bool getHasDouble() const {return hasDouble;};
-    int getCurrentRound() const { return currentRound; };
+    bool getHasDouble() const {return hasDouble;}
+    int getCurrentRound() const { return currentRound; }
+    void setCurrentRound(int round) {
+        currentRound = round;
+    }
     int getCurrentPlayerIndex() const;
     int getNextPlayerIndex() const;
     void updateNextPlayerIndex();

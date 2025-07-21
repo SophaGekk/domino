@@ -459,6 +459,8 @@ void Server::broadcastGameState(const QString& sessionCode)
     }
     state["players"] = playersArray;
 
+    state["current_round"] = session.game->getCurrentRound();
+
     for (QTcpSocket* client : session.clientNames.keys()) {
         sendToClient(client, state);
     }
@@ -623,10 +625,9 @@ void Server::checkGameOver(const QString& sessionCode) {
     GameSession& session = sessions[sessionCode];
 
     if (session.game->isGameOver()) {
+        if(!session.game->doubleCall){session.game->calculateScores();}
         int winnerIndex = session.game->determineWinner();
-        QString winnerName = (winnerIndex != -1)
-                                 ? session.game->getPlayers()[winnerIndex]->getName()
-                                 : "";
+        QString winnerName = (winnerIndex != -1) ? session.game->getPlayers()[winnerIndex]->getName() : "";
         bool isDraw = (winnerIndex == -1);
 
         // Определяем тип завершения: раунд или вся игра
@@ -638,6 +639,7 @@ void Server::checkGameOver(const QString& sessionCode) {
 
         QJsonObject gameOverMsg;
         gameOverMsg["type"] = isFinalGameOver ? "game_over" : "round_over";
+        qDebug() << "type"<<gameOverMsg["type"];
         gameOverMsg["winner"] = winnerName;
         gameOverMsg["is_draw"] = isDraw;
 
@@ -646,6 +648,8 @@ void Server::checkGameOver(const QString& sessionCode) {
         for (Player* player : session.game->getPlayers()) {
             namesArray.append(player->getName());
             scoresArray.append(player->getScore());
+            qDebug() << "scoresArray"<<player->getScore();
+
         }
         gameOverMsg["player_names"] = namesArray;
         gameOverMsg["player_scores"] = scoresArray;
@@ -671,33 +675,48 @@ void Server::processBazaarTile(QTcpSocket* socket, const QJsonObject& data) {
 
     int left = data["left"].toInt();
     int right = data["right"].toInt();
-    DominoTile selectedTile(left, right);
+    qDebug() << "Player" << session.clientNames[socket] << "requested tile: (" << left << "," << right << ")";
 
     Bazaar* bazaar = session.game->getBazaar();
 
     // Пытаемся найти и удалить выбранную костяшку
-    bool tileRemoved = false;
     const QVector<DominoTile>& tiles = bazaar->getTiles();
-    for (const DominoTile& tile : tiles) {
+
+    int indexToRemove = -1;
+    for (int i = 0; i < tiles.size(); ++i) {
+        const DominoTile& tile = tiles[i];
         if ((tile.getLeftValue() == left && tile.getRightValue() == right) ||
             (tile.getLeftValue() == right && tile.getRightValue() == left)) {
-            bazaar->removeTile(tile);
-            session.game->getCurrentPlayer()->addTile(tile);
-            tileRemoved = true;
+            indexToRemove = i;
             break;
         }
     }
 
-    if (tileRemoved) {
-        // Убрано session.game->makeMove() - ход остается у текущего игрока
+    if (indexToRemove != -1) {
+        // Создаем копию перед удалением
+        DominoTile tile = bazaar->getTiles()[indexToRemove];
+
+        qDebug() << "Removing tile from bazaar: ("
+                 << tile.getLeftValue() << "," << tile.getRightValue() << ")";
+
+        bazaar->removeTile(bazaar->getTiles()[indexToRemove]);
+        session.game->getCurrentPlayer()->addTile(tile);
+
+        qDebug() << "Added tile to player:" << session.game->getCurrentPlayer()->getName()
+                 << "New hand size:" << session.game->getCurrentPlayer()->getHand().size();
+
         broadcastGameState(sessionCode);
         checkGameOver(sessionCode);
     } else {
         qDebug() << "Failed to remove tile from bazaar: (" << left << "," << right << ")";
+        qDebug() << "Current bazaar tiles:";
+        for (const DominoTile& t : bazaar->getTiles()) {
+            qDebug() << "(" << t.getLeftValue() << "," << t.getRightValue() << ")";
+        }
     }
 
     if (!session.game->currentPlayerCanMove() && session.game->getBazaar()->isEmpty()) {
-        session.game->makeMove();
+       // session.game->makeMove();
         broadcastGameState(sessionCode);
         checkGameOver(sessionCode);
     }
@@ -723,7 +742,7 @@ void Server::processNewRound(QTcpSocket* socket) {
     if (!sessions.contains(sessionCode)) return;
 
     GameSession& session = sessions[sessionCode];
-
+    session.game->doubleCall = false;
     // Проверяем, что запрос от хоста
     if (session.host != socket) {
         sendErrorMessage(socket, "Хост должен начать новый раунд!");

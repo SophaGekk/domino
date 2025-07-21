@@ -6,7 +6,7 @@
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
 
-#include "../../../server.h"
+#include "../server.h"
 #include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 
@@ -44,7 +44,7 @@ static constexpr auto qt_meta_stringdata_ZN6ServerE = QtMocHelpers::stringData(
     "qintptr",
     "socketDescriptor",
     "slotReadyRead",
-    "clientDisconnected"
+    "startGame"
 );
 #else  // !QT_MOC_HAS_STRINGDATA
 #error "qtmochelpers.h not found or too old."
@@ -90,7 +90,7 @@ Q_CONSTINIT const QMetaObject Server::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<qintptr, std::false_type>,
         // method 'slotReadyRead'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
-        // method 'clientDisconnected'
+        // method 'startGame'
         QtPrivate::TypeAndForceComplete<void, std::false_type>
     >,
     nullptr
@@ -103,7 +103,7 @@ void Server::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void
         switch (_id) {
         case 0: _t->incomingConnection((*reinterpret_cast< std::add_pointer_t<qintptr>>(_a[1]))); break;
         case 1: _t->slotReadyRead(); break;
-        case 2: _t->clientDisconnected(); break;
+        case 2: _t->startGame(); break;
         default: ;
         }
     }
