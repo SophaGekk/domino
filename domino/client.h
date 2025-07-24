@@ -30,6 +30,8 @@ public:
     void disconnectFromHost();
     QString getPlayerName() const { return m_playerName; }
     void sendBazaarTileRequest(const DominoTile& tile);
+    void leaveSession();
+    void disconnectFromServer();
 
 signals:
     void newChatMessage(const QString& sender, const QString& message);

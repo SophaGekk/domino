@@ -6,7 +6,7 @@
 #include "domino_game.h"
 #include "dominolabel.h"
 #include "bazaaroverlay.h"
-#include "ClickableLabel.h"
+#include "clickablelabel.h"
 #include <QGraphicsEffect>
 #include <QTextEdit>
 #include <QLineEdit>

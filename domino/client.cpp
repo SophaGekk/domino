@@ -76,7 +76,7 @@ void Client::processMessage(const QString& message) {
         QMessageBox::critical(m_mainWindow, "Игра завершена", reason);
         emit returnToMainMenuRequested();
     }
-    if (type == "session_update") {
+    else if (type == "session_update") {
         int players = json["players"].toInt();
         int required = json["required"].toInt();
         qDebug() << "Session update:" << players << "/" << required;
@@ -274,4 +274,29 @@ void Client::sendNewRoundRequest() {
     QDataStream out(socket);
     out.setVersion(QDataStream::Qt_6_2);
     out << QString::fromUtf8(data);
+}
+
+void Client::leaveSession() {
+    if (socket && socket->state() == QAbstractSocket::ConnectedState) {
+        QJsonObject message;
+        message["type"] = "leave_session";
+
+        QJsonDocument doc(message);
+        QByteArray data = doc.toJson();
+
+        QDataStream out(socket);
+        out.setVersion(QDataStream::Qt_6_2);
+        out << QString::fromUtf8(data);
+        socket->disconnectFromHost();
+    }
+}
+
+
+void Client::disconnectFromServer() {
+    if (socket && socket->state() == QAbstractSocket::ConnectedState) {
+        socket->disconnectFromHost();
+        if (socket->state() != QAbstractSocket::UnconnectedState) {
+            socket->waitForDisconnected(1000);
+        }
+    }
 }

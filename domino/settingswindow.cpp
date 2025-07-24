@@ -1,5 +1,5 @@
-#include "SettingsWindow.h"
-#include "ui_SettingsWindow.h"
+#include "settingswindow.h"
+#include "ui_settingswindow.h"
 #include <QShortcut>
 
 

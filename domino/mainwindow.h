@@ -70,6 +70,7 @@ private:
     void startHostGame(const QString& playerName, const QString& host, quint16 port, int playersCount);
     void joinSession(const QString& playerName, const QString& host, quint16 port, const QString& sessionCode);
     void showWaitingDialog();
+    QString sanitizeName(QString name);
 
     DominoGame* existingGame = nullptr;
     QString sessionCode;

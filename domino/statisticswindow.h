@@ -3,7 +3,7 @@
 
 #include <QWidget>
 #include <QTableWidget>
-#include "ui_statisticswindow.h"
+#include "ui_StatisticsWindow.h"
 
 class StatisticsWindow : public QWidget {
     Q_OBJECT

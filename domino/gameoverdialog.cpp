@@ -53,22 +53,6 @@ GameOverDialog::GameOverDialog(const QVector<Player*>& players, QWidget* parent)
     // Добавляем контейнер с кнопками в основной макет
     ui.verticalLayout->addWidget(buttonContainer);
 
-    QPushButton* closeBtn = new QPushButton("×", this);
-    closeBtn->setStyleSheet(R"(
-        QPushButton {
-            font-size: 18px;
-            border: none;
-            color: #444;
-            qproperty-alignment: AlignRight;
-        }
-        QPushButton:hover {
-            color: #ff4444;
-        }
-    )");
-    closeBtn->setFixedSize(24, 24);
-    closeBtn->move(width() - 34, 6);
-    connect(closeBtn, &QPushButton::clicked, this, &GameOverDialog::close);
-
     connect(newRoundButton, &QPushButton::clicked, this, &GameOverDialog::newRoundRequested);
     connect(exitButton, &QPushButton::clicked, this, &GameOverDialog::exitToMainMenu);
 }

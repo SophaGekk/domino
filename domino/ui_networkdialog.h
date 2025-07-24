@@ -54,7 +54,7 @@ public:
     {
         if (NetworkDialog->objectName().isEmpty())
             NetworkDialog->setObjectName("NetworkDialog");
-        NetworkDialog->resize(400, 300);
+        NetworkDialog->resize(400, 368);
         verticalLayout = new QVBoxLayout(NetworkDialog);
         verticalLayout->setObjectName("verticalLayout");
         groupBox = new QGroupBox(NetworkDialog);
@@ -175,7 +175,7 @@ public:
         labelPlayers->setText(QCoreApplication::translate("NetworkDialog", "\320\232\320\276\320\273\320\270\321\207\320\265\321\201\321\202\320\262\320\276 \320\270\320\263\321\200\320\276\320\272\320\276\320\262:", nullptr));
         labelCode->setText(QCoreApplication::translate("NetworkDialog", "\320\232\320\276\320\264 \321\201\320\265\321\201\321\201\320\270\320\270:", nullptr));
         btnCancel->setText(QCoreApplication::translate("NetworkDialog", "\320\236\321\202\320\274\320\265\320\275\320\260", nullptr));
-        btnConnect->setText(QCoreApplication::translate("NetworkDialog", "\320\237\320\276\320\264\320\272\320\273\321\216\321\207\320\270\321\202\321\214\321\201\321\217", nullptr));
+        btnConnect->setText(QCoreApplication::translate("NetworkDialog", "\320\237\321\200\320\270\321\201\320\276\320\265\320\264\320\270\320\275\320\270\321\202\321\214\321\201\321\217", nullptr));
     } // retranslateUi
 
 };

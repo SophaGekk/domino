@@ -500,6 +500,10 @@ void Server::slotReadyRead()
         if (type == "new_round") {
             processNewRound(socket);
         }
+
+        if (type == "leave_session") {
+            clientLeft();
+        }
         // Для остальных сообщений проверяем привязку к сессии
         if (!socketToSession.contains(socket)) {
             qDebug() << "Socket not in any session, ignoring message";
@@ -564,6 +568,7 @@ void Server::clientDisconnected()
             sendToClient(client, gameOver);
             // Отвязываем сокет от сессии перед закрытием
             socketToSession.remove(client);
+            client->disconnectFromHost();
         }
 
         // Закрываем соединения с игроками
@@ -632,11 +637,12 @@ void Server::checkGameOver(const QString& sessionCode) {
 
         // Определяем тип завершения: раунд или вся игра
         bool isFinalGameOver = false;
-        if (winnerIndex != -1) {
-            Player* winner = session.game->getPlayers()[winnerIndex];
-            isFinalGameOver = (winner->getScore() >= session.game->getMaxScore());
+        for (Player* player : session.game->getPlayers()) {
+            if (player->getScore() >= session.game->getMaxScore()) {
+                isFinalGameOver = true;
+                break;
+            }
         }
-
         QJsonObject gameOverMsg;
         gameOverMsg["type"] = isFinalGameOver ? "game_over" : "round_over";
         qDebug() << "type"<<gameOverMsg["type"];
@@ -648,8 +654,6 @@ void Server::checkGameOver(const QString& sessionCode) {
         for (Player* player : session.game->getPlayers()) {
             namesArray.append(player->getName());
             scoresArray.append(player->getScore());
-            qDebug() << "scoresArray"<<player->getScore();
-
         }
         gameOverMsg["player_names"] = namesArray;
         gameOverMsg["player_scores"] = scoresArray;
@@ -761,4 +765,36 @@ void Server::processNewRound(QTcpSocket* socket) {
 
     // Рассылаем новое состояние игры
     broadcastGameState(sessionCode);
+}
+
+void Server::clientLeft()
+{
+    QTcpSocket* socket = qobject_cast<QTcpSocket*>(sender());
+    if (!socket || !socketToSession.contains(socket)) return;
+
+    QString sessionCode = socketToSession[socket];
+    if (!sessions.contains(sessionCode)) return;
+
+    GameSession& session = sessions[sessionCode];
+    QString playerName = session.clientNames[socket];
+
+    // Удаляем игрока из сессии
+    session.clientNames.remove(socket);
+    session.connectedNames.remove(playerName);
+    socketToSession.remove(socket);
+
+    qDebug() << "Player disconnected:" << playerName << "from session:" << sessionCode;
+
+    QJsonObject gameOver;
+    gameOver["type"] = "game_terminated";
+    gameOver["reason"] = QString("Игра завершена: игрок %1 покинул игру").arg(playerName);
+
+    for (QTcpSocket* client : session.clientNames.keys()) {
+        sendToClient(client, gameOver);
+        socketToSession.remove(client);
+        client->disconnectFromHost();
+    }
+
+    // Удаляем сессию (без closeSessionConnections!)
+    sessions.remove(sessionCode);
 }

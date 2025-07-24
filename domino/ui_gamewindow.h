@@ -111,13 +111,13 @@ public:
         avatarTop->setScaledContents(true);
         labelNameTop = new QLabel(gameField);
         labelNameTop->setObjectName("labelNameTop");
-        labelNameTop->setGeometry(QRect(200, 10, 61, 21));
+        labelNameTop->setGeometry(QRect(190, 10, 81, 21));
         labelScoreTop = new QLabel(gameField);
         labelScoreTop->setObjectName("labelScoreTop");
         labelScoreTop->setGeometry(QRect(200, 30, 21, 31));
         labelNameBottom = new QLabel(gameField);
         labelNameBottom->setObjectName("labelNameBottom");
-        labelNameBottom->setGeometry(QRect(629, 426, 61, 31));
+        labelNameBottom->setGeometry(QRect(599, 426, 91, 31));
         avatarBottom = new QLabel(gameField);
         avatarBottom->setObjectName("avatarBottom");
         avatarBottom->setGeometry(QRect(710, 430, 48, 48));
@@ -140,10 +140,10 @@ public:
         verticalLayoutLeftHand->setContentsMargins(0, 0, 0, 0);
         labelNameLeft = new QLabel(gameField);
         labelNameLeft->setObjectName("labelNameLeft");
-        labelNameLeft->setGeometry(QRect(0, 50, 61, 21));
+        labelNameLeft->setGeometry(QRect(0, 50, 81, 21));
         labelNameRight = new QLabel(gameField);
         labelNameRight->setObjectName("labelNameRight");
-        labelNameRight->setGeometry(QRect(730, 50, 63, 20));
+        labelNameRight->setGeometry(QRect(712, 50, 81, 20));
         labelScoreRight = new QLabel(gameField);
         labelScoreRight->setObjectName("labelScoreRight");
         labelScoreRight->setGeometry(QRect(770, 80, 21, 31));

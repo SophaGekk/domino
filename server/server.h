@@ -53,6 +53,7 @@ private:
     void processBazaarTile(QTcpSocket* socket, const QJsonObject& data);
     void sendErrorMessage(QTcpSocket* socket, const QString& message);
     void processNewRound(QTcpSocket* socket);
+    void clientLeft();
 
 
 

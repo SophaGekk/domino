@@ -100,27 +100,16 @@ void MainWindow::startLocalGame()
         }
 
         names = dialog.getNames();
+
+        for(auto& name : names) {
+            name = sanitizeName(name);
+        }
+
         existingGame = nullptr;
         gameWindow = new GameWindow(players, bots, showReserve, names, nullptr);
-        if (players > 1 && bots == 0) {
-            client = new Client(this);
-            connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
 
-            // Настраиваем связи
-            client->setGameWindow(gameWindow);
-            gameWindow->setClient(client);
+        gameWindow->setClient(nullptr);
 
-            // Подключение сигналов
-            connect(gameWindow, &GameWindow::requestBazaar, client, &Client::sendBazaarRequest);
-            connect(gameWindow, &GameWindow::requestSkip, client, &Client::sendSkipRequest);
-            connect(gameWindow, &GameWindow::sendNetworkChat, client, &Client::sendChatMessage);
-
-            // Подключение к серверу
-            client->connectToServer("127.0.0.1", 2323, "Игрок11");
-        }
-        else {
-            gameWindow->setClient(nullptr);
-        }
 
 
         gameWindow->setHighlightEnabled(settings.value("highlight", false).toBool());
@@ -143,7 +132,7 @@ void MainWindow::showNetworkDialog()
 {
     NetworkDialog networkDialog(this);
     if (networkDialog.exec() == QDialog::Accepted) {
-        QString playerName = networkDialog.getPlayerName();
+        QString playerName = sanitizeName(networkDialog.getPlayerName());
         QString host = networkDialog.getHostAddress();
         quint16 port = networkDialog.getPort();
 
@@ -159,11 +148,22 @@ void MainWindow::showNetworkDialog()
 
 void MainWindow::startHostGame(const QString& playerName, const QString& host, quint16 port, int playersCount)
 {
+    showWaitingDialog();
+
     if (client) {
-        delete client;
+        client->disconnectFromServer();
+        client->deleteLater();
+        client = nullptr;
     }
     client = new Client(this);
-    connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
+    connect(client, &Client::returnToMainMenuRequested, this, [this]() {
+        gameWindow->close();
+        this->show();  // Возврат в главное меню
+    });
+    connect(gameWindow, &GameWindow::returnToMainMenu, this, [this]() {
+        gameWindow->close();
+        this->show();  // Возврат в главное меню
+    });
 
     connect(client, &Client::sessionCreated, this, &MainWindow::onSessionCreated);
     connect(client, &Client::playerJoined, this, &MainWindow::onPlayerJoined);
@@ -175,16 +175,26 @@ void MainWindow::startHostGame(const QString& playerName, const QString& host, q
     client->connectToServer(host, port, playerName);
     client->createSession(playerName, playersCount);
 
-    showWaitingDialog();
 }
 
 void MainWindow::joinSession(const QString& playerName, const QString& host, quint16 port, const QString& sessionCode)
 {
+    showWaitingDialog();
+
     if (client) {
-        delete client;
+
+        client->deleteLater();
+        client = nullptr;
     }
     client = new Client(this);
-    connect(client, &Client::returnToMainMenuRequested, this, &MainWindow::returnToMainMenu);
+    connect(client, &Client::returnToMainMenuRequested, this, [this]() {
+        gameWindow->close();
+        this->show();  // Возврат в главное меню
+    });
+    connect(gameWindow, &GameWindow::returnToMainMenu, this, [this]() {
+        gameWindow->close();
+        this->show();  // Возврат в главное меню
+    });
 
     connect(client, &Client::playerJoined, this, &MainWindow::onPlayerJoined);
     connect(client, &Client::gameStarted, this, &MainWindow::onGameStarted);
@@ -195,8 +205,6 @@ void MainWindow::joinSession(const QString& playerName, const QString& host, qui
     isHost = false;
     client->connectToServer(host, port, playerName);
     client->joinSession(sessionCode, playerName);
-
-    showWaitingDialog();
 }
 
 void MainWindow::onSessionUpdated(int players, int required)
@@ -470,4 +478,16 @@ void MainWindow::returnToMainMenu()
     }
 
     show();
+
+    if (client) {
+        client->disconnectFromServer();
+        client->deleteLater();
+        client = nullptr;
+    }
+}
+
+QString MainWindow::sanitizeName(QString name)
+{
+    if(name.isEmpty()) name = "Unknown";
+    return name.left(10); // Ограничение длины
 }

@@ -20,7 +20,7 @@
 #include "chatmanager.h"
 #include "final_game_over_dialog.h"
 #include "client.h"
-#include "HumanPlayer.h"
+#include "humanplayer.h"
 
 GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const QStringList &playerNames, DominoGame* existingGame, QWidget *parent)
     : QWidget(parent), ui(new Ui::GameWindow), playersCount(playersCount), BotCount(BotCount), playerNames(playerNames) {
@@ -320,11 +320,35 @@ void GameWindow::clearBoard() {
 }
 
 void GameWindow::onHomeClicked() {
+    if (isNetworkGame && !game->isGameFinished()) {
+        QMessageBox::StandardButton confirm;
+        confirm = QMessageBox::question(
+            this, tr("Подтверждение выхода"),tr("Вы уверены, что хотите покинуть игру? Текущая сессия будет завершена."), QMessageBox::Yes | QMessageBox::No,QMessageBox::No);
 
+        if (confirm == QMessageBox::No) {
+            return; // Отмена выхода
+        }
+        client->leaveSession();
+        if (!this->isHost)
+        {
+            // При выходе в меню записываем статистику
+            try {
+                writeGameStats();
+                qDebug() << "writeGameStats запись";
+
+            } catch (const std::exception& e) {
+                qCritical() << "Ошибка записи статистики:" << e.what();
+            }
+        }
+    }
+    if (isNetworkGame && client) {
+        client->disconnectFromServer();
+        client->deleteLater();
+        client = nullptr;
+    }
     emit returnToMainMenu();
     m_turnOverlay->hide();
     this->hide();
-
 }
 
 GameWindow::~GameWindow() {
@@ -1015,6 +1039,7 @@ void GameWindow::showGameOver() {
             else if(client)
             {
                 onNetworkError("Только Хост может начать новый раунд!");
+                updateGameState();gameOverShown = false;isGameOverShown = false, clearBoard(); m_darkOverlay->deleteLater(); game->doubleCall = false;
             }
         });
     }
@@ -1028,15 +1053,19 @@ void GameWindow::showGameOver() {
         });
     }
 
-    connect(dialog, &GameOverDialog::exitToMainMenu, this, [this]() {
-        // При выходе в меню записываем статистику
-        try {
-            writeGameStats();
-            qDebug() << "writeGameStats запись";
+    connect(dialog, &GameOverDialog::exitToMainMenu, this, [this, dialog]() {
+        if ((client && this->isHost) || !isNetworkGame)
+        {
+            // При выходе в меню записываем статистику
+            try {
+                writeGameStats();
+                qDebug() << "writeGameStats запись";
 
-        } catch (const std::exception& e) {
-            qCritical() << "Ошибка записи статистики:" << e.what();
+            } catch (const std::exception& e) {
+                qCritical() << "Ошибка записи статистики:" << e.what();
+            }
         }
+        dialog->close();
         onHomeClicked();
     });
 }
@@ -1084,6 +1113,7 @@ void GameWindow::keyPressEvent(QKeyEvent* event) {
 
     if (event->key() == Qt::Key_H) {
         showTurnHint();
+        highlightValidTiles();
         event->accept();
         return;
     }
@@ -1119,25 +1149,20 @@ void GameWindow::writeGameStats() {
 
     // Создание новой записи для каждого игрока
     QDateTime currentDateTime = QDateTime::currentDateTime();
-    QString gameId = QString::number(currentDateTime.toSecsSinceEpoch());
+    qint64 timestamp = currentDateTime.toSecsSinceEpoch(); // Для точной сортировки
 
     for (Player* player : game->getPlayers()) {
         if (!player) continue; // Проверка на nullptr
 
         QJsonObject entry;
-        entry["game_id"] = gameId;
-        entry["name"] = player->getName().isEmpty() ? "Unknown" : player->getName(); // Защита от пустого имени
+        entry["game_id"] = QString::number(timestamp);
+        entry["name"] = player->getName().isEmpty() ? "Unknown" : player->getName();
         entry["wins"] = player->getWins();
         entry["points"] = player->getScore();
         entry["rounds"] = game->getCurrentRound();
         entry["players"] = game->getPlayers().size();
         entry["date"] = currentDateTime.toString("yyyy-MM-dd");
-
-        // Формируем sortKey с учетом всех критериев
-        entry["sortKey"] = QString("%1-%2-%3")
-                               .arg(entry["points"].toInt(), 10, 10, QChar('0'))
-                               .arg(-entry["rounds"].toInt(), 10, 10, QChar('0'))
-                               .arg(currentDateTime.toString("yyyyMMddHHmmss")); // Уникальный ключ для сортировки
+        entry["timestamp"] = timestamp; // Добавляем метку времени
 
         statsArray.append(entry);
         qDebug() << "Запись игрока:" << entry["name"] << entry["points"] << entry["rounds"];
@@ -1150,7 +1175,38 @@ void GameWindow::writeGameStats() {
     }
 
     std::sort(entries.begin(), entries.end(), [](const QJsonObject& a, const QJsonObject& b) {
-        return a["sortKey"].toString() < b["sortKey"].toString();
+        // 1. очки (по убыванию)
+        int pointsA = a["points"].toInt();
+        int pointsB = b["points"].toInt();
+        if (pointsA != pointsB) {
+            return pointsA > pointsB;
+        }
+
+        // 2. Дата/время (по убыванию - свежие выше)
+        qint64 timeA = a["timestamp"].toVariant().toLongLong();
+        qint64 timeB = b["timestamp"].toVariant().toLongLong();
+        if (timeA != timeB) {
+            return timeA > timeB;
+        }
+
+        // 3. Имя игрока (по возрастанию A-Z)
+        QString nameA = a["name"].toString();
+        QString nameB = b["name"].toString();
+        if (nameA != nameB) {
+            return nameA < nameB;
+        }
+
+        // 4. Победы (по убыванию)
+        int winsA = a["wins"].toInt();
+        int winsB = b["wins"].toInt();
+        if (winsA != winsB) {
+            return winsA > winsB;
+        }
+
+        // 5. Раунды (по возрастанию - меньше лучше)
+        int roundsA = a["rounds"].toInt();
+        int roundsB = b["rounds"].toInt();
+        return roundsA < roundsB;
     });
 
     // Перезаписываем массив
@@ -1262,15 +1318,17 @@ void GameWindow::showFinalGameOver() {
     m_darkOverlay->show();
 
     Player* winner = game->getPlayers()[winnerIndex];
-
-    // Запись статистики
-    try {
-        if (!isDraw) {
-            winner->addWin();
+    if ((client && this->isHost) || !isNetworkGame)
+    {
+        // Запись статистики
+        try {
+            if (!isDraw) {
+                winner->addWin();
+            }
+            writeGameStats();
+        } catch (const std::exception& e) {
+            qCritical() << "Ошибка записи статистики:" << e.what();
         }
-        writeGameStats();
-    } catch (const std::exception& e) {
-        qCritical() << "Ошибка записи статистики:" << e.what();
     }
 
     // Создаем финальное окно победы

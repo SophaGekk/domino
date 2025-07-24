@@ -5,7 +5,7 @@
 #include <QGridLayout>
 #include "domino_tile.h"
 #include "dominolabel.h"
-#include "ui_bazaaroverlay.h"
+#include "ui_BazaarOverlay.h"
 #include "bazaar.h"
 
 
