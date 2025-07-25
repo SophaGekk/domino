@@ -7,7 +7,7 @@
 #include "bot_player.h"
 #include "clickable_rect.h"
 #include <QGraphicsProxyWidget>
-#include "ClickableLabel.h"
+#include "clickablelabel.h"
 #include "gameoverdialog.h"
 #include <QDate>
 #include <QJsonObject>
