@@ -22,7 +22,6 @@
 #include "bazaar.h"
 #include "test.h"
 
-
 int main(int argc, char *argv[]){
     QApplication a(argc, argv);
     qApp->setWindowIcon(QIcon("/icon/main_domino.png"));

@@ -124,6 +124,19 @@ GameWindow::GameWindow(int playersCount, int BotCount, bool isShowReserve, const
         m_currentPlayerLabel->hide();
     });
 
+    // Таймер для подсказки при долгом ходе
+    m_hintTimer = new QTimer(this);
+    m_hintTimer->setSingleShot(true);
+    connect(m_hintTimer, &QTimer::timeout, this, [this]() {
+        if (!game->getCurrentPlayer()->isBot() && !m_hintShown) {
+            QToolTip::showText(mapToGlobal(QPoint(width()/2, height()/2)),
+                               "Нажмите 'H' чтобы получить подсказку",
+                               this, QRect(), 30000);
+            m_hintShown = true;
+        }
+    });
+    m_hintShown = false;
+
     updateGameState();
     setupHands();
     updateUI();
@@ -543,6 +556,7 @@ void GameWindow::onRightEndClicked() {
 }
 
 void GameWindow::handleMove(DominoTile tile, bool isLeftEnd) {
+    m_hintTimer->stop();
     if (isNetworkGame) {
         client->sendMove(tile, isLeftEnd); // Отправка на сервер
         clearSelection();
@@ -962,6 +976,7 @@ QPoint GameWindow::getTilePosition(const DominoTile& tile) const {
 }
 
 void GameWindow::onReserveClicked() {
+    m_hintTimer->stop();
     if (game->getBazaar()->remainingTilesCount() == 0) {
         QMessageBox::information(this, "Резерв пуст", "Нет доступных костяшек.");
         return;
@@ -1072,13 +1087,19 @@ void GameWindow::showGameOver() {
 
 
 void GameWindow::onPlayerChanged(int index) {
+    m_hintShown = false;
     const auto& players = game->getPlayers();
     if (!players[index]->isBot() && !isNetworkGame) {
+        m_hintTimer->start(60000);
         showTurnOverlay(players[index]->getName());
     }
-    else {
+    else if(isNetworkGame)
+    {
+        m_hintTimer->start(120000);
+    }
+    else if(players[index]->isBot()) {
         m_turnOverlay->hide();
-        if (!isNetworkGame && players[index]->isBot()) {
+        if (players[index]->isBot()) {
             QTimer::singleShot(1000, this, [this]() {
                 processMove(DominoTile(-1, -1));
             });
@@ -1230,7 +1251,8 @@ void GameWindow::updateUI() {
     ui->pushButton_skip->setEnabled(!game->getCurrentPlayer()->isBot() && !canMove); // Активируем кнопку, если ходов нет
 }
 
-void GameWindow::on_pushButton_skip_clicked() {    
+void GameWindow::on_pushButton_skip_clicked() {
+    m_hintTimer->stop();
     if (isNetworkGame) {
         QMessageBox::information(this, "Ход пропущен",  QString("%1 пропускает ход").arg(game->getCurrentPlayer()->getName()));
         client->sendSkipRequest();

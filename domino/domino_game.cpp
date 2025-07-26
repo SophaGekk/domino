@@ -11,15 +11,13 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonValue>
+#include <QTimer>
 
 // Конструктор
 DominoGame::DominoGame(int playerCount, int BotCount, const QStringList &playerNames, QObject* parent)
     : QObject(parent), playerCount(playerCount), BotCount(BotCount), currentPlayerIndex(0), gameEnd(false) {
     bazaar = new Bazaar();
     startNewGame(playerNames);
-    qDebug() << "пустая игра началась";
-
-
 }
 
 // Реализация методов доступа
@@ -121,7 +119,9 @@ void DominoGame::determineFirstPlayer() {
     const auto& players = getPlayers();
 
     if (players[currentPlayerIndex]->isBot()) {
-        emit playerChanged(currentPlayerIndex); // Уведомляем об изменении игрока
+        QTimer::singleShot(100, this, [this]() {
+            emit playerChanged(currentPlayerIndex);
+        });
     }
 
 }

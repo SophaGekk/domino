@@ -169,6 +169,9 @@ private:
     bool isHost = false;
     QLabel* m_currentPlayerLabel; // Метка для отображения текущего игрока
     QTimer* m_turnHintTimer;      // Таймер для показа подсказок
+
+    QTimer* m_hintTimer; // Таймер для показа подсказки
+    bool m_hintShown;     // Флаг, была ли показана подсказка
 };
 
 #endif // GAMEWINDOW_H
